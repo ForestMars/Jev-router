@@ -128,7 +128,7 @@ src/
     tier3.rs          In-process micro-transformer runner
     tier4.rs          Heavy fallback model runner
     tier5.rs          Frontier LLM escalation runner
-  tier2/
+  tier3/
     calibration.rs    Margin calculation and probability calibration
     trait.rs          Core evaluator trait and contract definitions
     inprocess/
@@ -140,8 +140,6 @@ src/
       client.rs       Asynchronous gRPC client
       proto.rs        Generated Protocol Buffer bindings
 ```
-
-The `src/tier2/` module hosts evaluator implementations and shared support code used by both tier 2 and tier 3, despite its name.
 
 ---
 
