@@ -313,6 +313,29 @@ The `logging` module provides low-overhead tracing. For every request the router
 
 Tracking **resolved-at-tier distribution over time** is the most important signal. A shift of traffic toward tiers 4 and 5 means thresholds, models, or the input distribution have drifted, and both cost and tail latency will rise.
 
+### Adjusting the Log Level
+
+Log verbosity is controlled with the `RUST_LOG` environment variable. **The default level is `trace`**, which is extremely verbose and includes frame-level output from the `h2` and `hyper` crates.
+
+Set `RUST_LOG=info` to quiet it down:
+
+```bash
+RUST_LOG=info cargo run --release
+```
+
+Common settings:
+
+| Value | Effect |
+| :--- | :--- |
+| `RUST_LOG=info` | Recommended for normal operation and production |
+| `RUST_LOG=debug` | Router decision detail without frame-level transport output |
+| `RUST_LOG=warn` | Warnings and errors only |
+| `RUST_LOG=trace` | Everything (the default). Use only for short debugging sessions |
+| `RUST_LOG=trace,h2=warn,hyper=warn` | Full trace output for the router, with `h2` and `hyper` silenced |
+
+Trace-level logging adds overhead and can distort the latency figures in this document. Benchmark and deploy with `info` or higher.
+
+
 ---
 
 ## Extending the Router
