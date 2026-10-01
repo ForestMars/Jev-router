@@ -1,116 +1,364 @@
-# Ultra-Low Latency Cascade Router
+# Cascade Router Engine
 
-An in-process, high-throughput Rust routing engine designed for sub-5ms decision pathways (P99) across discriminative (Jev) and generative (LLM) processing tiers[cite: 1].
+An in-process, high-throughput request routing engine written in Rust. It classifies incoming prompts and routes them to discriminative (Jev) or generative (LLM) execution pathways with a **p99 decision latency under 5 ms** for the overwhelming majority of traffic.
 
----
-
-## 1. Architecture Overview
-
-The system employs a **5-tier deterministic fallback cascade**[cite: 1]. Each stage short-circuits the pipeline as soon as confidence constraints are satisfied, routing simple traffic in microsecond space while reserving heavier transformers for ambiguous or semantically complex prompts[cite: 1].
-
-                  [ Incoming Prompt Payload ]
-                               │
-                               ▼
- ┌──────────────────────────────────────────────────────────┐
- │ Tier 1: Static Rules & Regex Guardrails (< 0.1ms)        │
- │ - Exact signature hashes, length bounds, regex sets      │
- └─────────────────────────────┬────────────────────────────┘
-                               │ (Unresolved)
-                               ▼
- ┌──────────────────────────────────────────────────────────┐
- │ Tier 2: FastText Subword Classifier (0.2ms - 0.4ms)      │
- │ - Character n-gram embeddings & calibrated margin score  │
- └─────────────────────────────┬────────────────────────────┘
-                               │ (Pass-Through / Low Margin)
-                               ▼
- ┌──────────────────────────────────────────────────────────┐
- │ Tier 3: In-Process / Remote Evaluators (1.5ms - 8.0ms)   │
- │ - ModernBERT, Harrier, or Oryn inference engines         │
- └─────────────────────────────┬────────────────────────────┘
-                               │ (Unresolved)
-                               ▼
- ┌──────────────────────────────────────────────────────────┐
- │ Tier 4: Heavy Model Fallback (20ms - 50ms)               │
- └─────────────────────────────┬────────────────────────────┘
-                               │ (Unresolved)
-                               ▼
- ┌──────────────────────────────────────────────────────────┐
- │ Tier 5: Frontier Model Escalation (Variable)             │
- └──────────────────────────────────────────────────────────┘
+The engine is a **five-tier deterministic fallback cascade**. Each tier either resolves the request with sufficient confidence or passes it to the next, more expensive tier. Cheap tiers absorb most traffic, so the expensive tiers only see the ambiguous remainder.
 
 ---
 
-## 2. Performance SLA & Latency Budget
+## Table of Contents
 
-| Tier | Engine / Mechanism | Latency Budget (P99) | Primary Purpose | Exit Coverage |
-| :--- | :--- | :--- | :--- | :--- |
-| **Tier 1** | regex::RegexSet & Hash Maps | < 0.1ms | Hard rules, static pings, payload bounds | ~25–35% |
-| **Tier 2** | FastText Subword (libfasttext) | 0.2ms - 0.4ms | Character n-gram probabilistic matching & typo handling | ~40–50% |
-| **Tier 3** | ModernBERT / Harrier / Oryn | 1.5ms - 8.0ms | Dense embedding evaluation & in-process model scoring[cite: 1] | ~15–25% |
-| **Tier 4** | Secondary Heavy Model | 20ms - 50ms | High-dimensional structural classification[cite: 1] | ~3–5% |
-| **Tier 5** | Frontier LLM | Variable | Final escalation for non-deterministic prompts[cite: 1] | <1% |
+1. [Design Goals](#design-goals)
+2. [Cascade Semantics](#cascade-semantics)
+3. [Tier Reference](#tier-reference)
+4. [Latency Budget and Target Coverage](#latency-budget-and-target-coverage)
+5. [Repository Layout](#repository-layout)
+6. [Runtime and Performance Model](#runtime-and-performance-model)
+7. [Configuration](#configuration)
+8. [Building](#building)
+9. [Model Artifacts](#model-artifacts)
+10. [Testing](#testing)
+11. [Benchmarking](#benchmarking)
+12. [Observability](#observability)
+13. [Extending the Router](#extending-the-router)
+14. [Failure Modes and Fallback Behavior](#failure-modes-and-fallback-behavior)
+15. [Known Constraints](#known-constraints)
+16. [Contributing](#contributing)
+17. [License](#license)
 
 ---
 
-## 3. Directory Topology
+## Design Goals
 
+- **Bounded latency.** Every tier has an explicit p99 budget. Total decision latency for tiers 1 to 3 stays within the 5 ms SLA.
+- **Early exit.** A request leaves the cascade at the first tier whose confidence meets its configured threshold.
+- **No GC pauses, minimal allocation.** The hot path is native Rust with C++ bindings, a replaced global allocator, and zero-copy ingress for the cheapest tiers.
+- **Deterministic behavior.** Given the same input, model artifacts, and configuration, the router returns the same decision.
+- **Pluggable evaluators.** Tier 2 and tier 3 engines sit behind a common trait, so models can be swapped through configuration without touching the dispatcher.
+
+---
+
+## Cascade Semantics
+
+A request is a prompt payload. The dispatcher in `src/router/cascade.rs` runs tiers in order and stops at the first tier that returns a resolved outcome.
+
+Each tier returns one of two outcomes:
+
+- **Resolved:** the tier produced a routing decision whose confidence meets its threshold. The cascade terminates and the decision is returned.
+- **PassThrough:** the tier could not decide with enough confidence (or is disabled). The payload moves to the next tier.
+
+Tier 5 is the terminal tier. It always produces a decision, so the cascade is total: every request receives a routing outcome.
+
+Disabled tiers are skipped without cost. Tiers are always evaluated in numeric order, and a tier is never re-entered once passed.
+
+---
+
+## Tier Reference
+
+### Tier 1: Static Rules and Regex Guardrails
+
+- **Mechanism:** payload byte-length bounds, hash-map lookup of exact static signatures, and a single-pass `regex::RegexSet` evaluation.
+- **Matching model:** the `regex` crate guarantees linear-time matching in input length. There is no backtracking, so adversarial patterns cannot cause latency blowups.
+- **Allocation:** none per request. The payload is handled as an immutable `&str`.
+- **Typical use:** health pings, known canned prompts, oversize payload rejection, hard policy rules.
+
+### Tier 2: FastText Subword Classifier
+
+- **Mechanism:** character n-gram subword embeddings (n = 3 to 6) evaluated by FastText through in-process static C++ bindings (`libfasttext`).
+- **Strength:** robust to typos, inflections, and fuzzy keyword variation, because subword features generalize across spellings.
+- **Confidence gating:** the classifier produces the top-1 probability P1 and top-2 probability P2. A margin-scaled confidence score is computed as:
+
+  `S = P1 * (1.0 + (P1 - P2))`
+
+  The tier resolves when `S >= confidence_threshold`; otherwise it returns PassThrough. A wide margin between the top two classes raises confidence, and a narrow margin lowers it, even when P1 alone is high.
+- **Calibration:** thresholds should be set against a held-out validation set using the utilities in `src/tier2/calibration.rs`, not by hand.
+- **Artifact:** quantized binary `router_fastpath.ftz`.
+
+### Tier 3: Micro-Transformer / Embedding Evaluators
+
+- **Engines:** ModernBERT, Harrier, or Oryn. Exactly one in-process engine is selected through configuration. A remote gRPC evaluator can be used instead.
+- **In-process path:** Int8-quantized ONNX models executed by ONNX Runtime (`ort`), with the HuggingFace `tokenizers` Rust library for tokenization.
+- **Scoring:** the prompt embedding is compared by cosine similarity (SIMD-accelerated with `simsimd`) against pre-computed route centroids.
+- **SIMD targets:** AVX-512 on x86-64, NEON on ARM.
+- **Remote path:** the gRPC client in `src/tier2/remote/` allows the same evaluator contract to be served out of process.
+
+### Tier 4: Heavy Model Fallback
+
+- **Mechanism:** a higher-capacity secondary classifier for ambiguous payloads that tiers 1 to 3 could not resolve.
+- **Latency:** an order of magnitude above tier 3. It is intentionally reserved for a small fraction of traffic.
+- **Timeout:** bounded by `timeout_ms`. See [Failure Modes](#failure-modes-and-fallback-behavior).
+
+### Tier 5: Frontier Model Escalation
+
+- **Mechanism:** escalation to a frontier LLM endpoint for prompts that remain unresolved or require non-deterministic judgment.
+- **Latency:** variable and dependent on the external endpoint.
+- **Role:** terminal tier, so it always returns a decision.
+
+---
+
+## Latency Budget and Target Coverage
+
+Latency figures are per-tier p99 budgets. Coverage figures are **design targets** for the share of traffic each tier should resolve. Actual values depend on your traffic mix and must be measured (see [Benchmarking](#benchmarking) and [Observability](#observability)).
+
+| Tier | Engine | p99 Budget | Target Coverage |
+| :--- | :--- | :--- | :--- |
+| 1 | `regex::RegexSet` and hash maps | < 0.1 ms | 25% to 35% |
+| 2 | FastText subword (`libfasttext`) | 0.2 ms to 0.4 ms | 40% to 50% |
+| 3 | ModernBERT / Harrier / Oryn via ONNX Runtime | 1.5 ms to 8.0 ms | 15% to 25% |
+| 4 | Secondary heavy model | 20 ms to 50 ms | 3% to 5% |
+| 5 | Frontier LLM | Variable | < 1% |
+
+Note that the 5 ms SLA holds for traffic that exits at tiers 1 to 3 within their lower budget range. The upper end of tier 3 (8 ms), tier 4, and tier 5 intentionally exceed it, which is why keeping their coverage small matters.
+
+---
+
+## Repository Layout
+
+```text
 src/
-├── config/
-│   ├── mod.rs          # Configuration loader
-│   └── schema.rs       # Deserialization schemas for router thresholds
-├── logging/
-│   └── mod.rs          # Zero-allocation telemetry & tracing wrappers
-├── router/
-│   ├── cascade.rs      # Main 5-tier pipeline dispatcher[cite: 1]
-│   ├── tier1.rs        # Tier 1: Static regex & rule guardrails[cite: 1]
-│   ├── tier2.rs        # Tier 2: FastText subword classifier
-│   ├── tier3.rs        # Tier 3: ModernBERT / Harrier / Oryn evaluator[cite: 1]
-│   ├── tier4.rs        # Tier 4: Heavy fallback runner[cite: 1]
-│   └── tier5.rs        # Tier 5: Frontier escalation runner
-└── tier2/              # Sub-engines for Tier 3 evaluation[cite: 1]
-    ├── calibration.rs  # Probability calibration utilities
-    ├── trait.rs        # Core model traits & contract definitions
-    ├── inprocess/      # Native ONNX / C++ in-process engines
-    │   ├── fasttext.rs
-    │   ├── modernbert.rs
-    │   ├── harrier.rs
-    │   └── oryn.rs
-    └── remote/         # gRPC/RPC remote evaluators
-        ├── client.rs
-        └── proto.rs
+  config/
+    mod.rs            Configuration loader with environment overrides
+    schema.rs         Serde schemas for tier thresholds, model paths, flags
+  logging/
+    mod.rs            Low-overhead tracing and telemetry initialization
+  router/
+    cascade.rs        Pipeline dispatcher and lifecycle orchestration
+    tier1.rs          Static hash, length bound, and regex evaluator
+    tier2.rs          FastText subword classifier runner
+    tier3.rs          In-process micro-transformer runner
+    tier4.rs          Heavy fallback model runner
+    tier5.rs          Frontier LLM escalation runner
+  tier2/
+    calibration.rs    Margin calculation and probability calibration
+    trait.rs          Core evaluator trait and contract definitions
+    inprocess/
+      fasttext.rs     FFI wrapper for libfasttext
+      modernbert.rs   ONNX Runtime implementation for ModernBERT
+      harrier.rs      ONNX Runtime implementation for Harrier
+      oryn.rs         Oryn in-process engine
+    remote/
+      client.rs       Asynchronous gRPC client
+      proto.rs        Generated Protocol Buffer bindings
+```
+
+The `src/tier2/` module hosts evaluator implementations and shared support code used by both tier 2 and tier 3, despite its name.
 
 ---
 
-## 4. Hardware Allocations & Dependencies
+## Runtime and Performance Model
 
-To maintain zero garbage collection pauses and sub-millisecond execution, the data plane relies on native C++ and Rust SIMD optimizations:
-
-- Allocator Override: System glibc malloc is replaced globally with `mimalloc` to prevent multi-threaded thread contention under high throughput.
-- Tier 1: `regex` crate utilizing RE2 linear-time semantics (no catastrophic backtracking).
-- Tier 2: `fasttext` crate wrapping native C++ `libfasttext.a`.
-- Tier 3: `ort` (ONNX Runtime bindings targeting AVX-512 / ARM Neon SIMD) and HuggingFace native `tokenizers` Rust library.
+- **Global allocator:** the system allocator is replaced with `mimalloc` via `#[global_allocator]` to avoid heap lock contention across worker threads.
+- **Threading:** a fixed worker pool sized by `router.workers`. Pinning workers to physical cores is recommended for stable tail latency.
+- **Zero-copy ingress:** tiers 1 and 2 receive the payload as `&str`, so no copy or allocation is made during pre-filtering.
+- **Quantization:** tier 3 models run Int8 to fit the latency budget on CPU.
+- **Static linking:** `libfasttext` is linked statically to avoid dynamic loading overhead and deployment drift.
 
 ---
 
-## 5. Quickstart & Testing
+## Configuration
+
+The router reads `config/router.toml`. Any key can be overridden by an environment variable with the `ROUTER__` prefix and double-underscore nesting, for example `ROUTER__TIER2__CONFIDENCE_THRESHOLD=0.9`.
+
+```toml
+[router]
+workers = 16
+max_payload_bytes = 1048576
+
+[router.tier1]
+enabled = true
+regex_patterns_path = "config/rules.regex"
+
+[router.tier2]
+enabled = true
+model_path = "models/router_fastpath.ftz"
+confidence_threshold = 0.85
+
+[router.tier3]
+enabled = true
+engine = "modernbert"            # modernbert | harrier | oryn
+model_path = "models/tier3_quantized.onnx"
+tokenizer_path = "models/tokenizer.json"
+centroids_path = "models/centroids.bin"
+confidence_threshold = 0.80
+
+[router.tier4]
+enabled = true
+timeout_ms = 50
+
+[router.tier5]
+enabled = true
+endpoint_url = "https://api.frontier.internal/v1/classify"
+```
+
+The values above are illustrative defaults. Thresholds must be calibrated on your own validation data before production use.
+
+### Key parameters
+
+| Key | Description |
+| :--- | :--- |
+| `router.workers` | Number of worker threads in the routing pool |
+| `router.max_payload_bytes` | Payloads above this size are rejected at tier 1 |
+| `tier1.regex_patterns_path` | File containing the compiled-at-startup regex rule set |
+| `tier2.confidence_threshold` | Minimum margin-scaled score `S` to resolve at tier 2 |
+| `tier3.engine` | Which in-process evaluator to load |
+| `tier3.centroids_path` | Pre-computed route centroids for cosine scoring |
+| `tier3.confidence_threshold` | Minimum similarity-derived confidence to resolve at tier 3 |
+| `tier4.timeout_ms` | Hard deadline for the heavy fallback model |
+| `tier5.endpoint_url` | Frontier model endpoint |
+
+---
+
+## Building
 
 ### Prerequisites
 
-System dependencies required for C++ static linking:
+- A stable Rust toolchain
+- A C++ toolchain and `clang`, required to build the static FastText library
+- `pkg-config`
+- Python 3 (only for model training scripts)
 
+```bash
 # Debian / Ubuntu
-sudo apt-get install build-essential clang
+sudo apt-get install build-essential clang pkg-config
 
 # macOS
 xcode-select --install
+```
 
-### Build & Test
+### Compile
 
-1. Train or generate the quantized FastText model binary (`router_fastpath.ftz`):
-   python3 train_test.py
+```bash
+cargo build --release
+```
 
-2. Run the full 5-tier cascade unit test suite:
-   cargo test --all-targets
+For best SIMD performance, build with native CPU features enabled:
 
-3. Run Criterion performance micro-benchmarks:
-   cargo bench
+```bash
+RUSTFLAGS="-C target-cpu=native" cargo build --release
+```
+
+Binaries built with `target-cpu=native` are not portable across CPU generations. Build on, or for, the deployment hardware.
+
+---
+
+## Model Artifacts
+
+The router expects these artifacts at the paths configured above. They are not checked into the repository.
+
+| Artifact | Used by | Produced by |
+| :--- | :--- | :--- |
+| `router_fastpath.ftz` | Tier 2 | `scripts/train_fasttext.py` |
+| `tier3_quantized.onnx` | Tier 3 | Your ONNX export and Int8 quantization pipeline |
+| `tokenizer.json` | Tier 3 | The tokenizer matching the chosen Tier 3 model |
+| `centroids.bin` | Tier 3 | Route centroid computation over labeled embeddings |
+
+### Training the Tier 2 model
+
+```bash
+python3 scripts/train_fasttext.py \
+  --input data/training_prompts.txt \
+  --output models/router_fastpath.ftz
+```
+
+After training, recalibrate `tier2.confidence_threshold` against a held-out set. A retrained model invalidates the previous threshold.
+
+---
+
+## Testing
+
+```bash
+cargo test --all-targets
+```
+
+To see tier-level output while debugging:
+
+```bash
+cargo test --all-targets -- --nocapture
+```
+
+The suite should cover, at minimum:
+
+- Per-tier resolve and pass-through behavior at threshold boundaries
+- End-to-end cascade ordering and short-circuiting
+- Disabled-tier skipping
+- Payload bound rejection at tier 1
+- Calibration math in `calibration.rs`
+
+---
+
+## Benchmarking
+
+Micro-benchmarks use Criterion.
+
+```bash
+cargo bench
+```
+
+When validating the SLA:
+
+- Benchmark each tier in isolation first, then the full cascade.
+- Report p50, p99, and p99.9, not means.
+- Run on the target deployment hardware with the production allocator and build flags.
+- Use a representative traffic mix. Coverage targets in this document are only meaningful against realistic input distributions.
+
+---
+
+## Observability
+
+The `logging` module provides low-overhead tracing. For every request the router should record:
+
+- The tier at which the request resolved
+- Per-tier latency
+- The confidence score at the deciding tier
+- Pass-through counts per tier, for coverage tracking
+- Timeouts and escalation failures at tiers 4 and 5
+
+Tracking **resolved-at-tier distribution over time** is the most important signal. A shift of traffic toward tiers 4 and 5 means thresholds, models, or the input distribution have drifted, and both cost and tail latency will rise.
+
+---
+
+## Extending the Router
+
+Tier 2 and tier 3 engines implement a common evaluator contract defined in `src/tier2/trait.rs`. To add an engine:
+
+1. Add an implementation under `src/tier2/inprocess/` (or a remote one under `src/tier2/remote/`).
+2. Implement the evaluator trait, returning a resolved decision with a confidence score, or a pass-through.
+3. Register the engine name in the configuration schema in `src/config/schema.rs`.
+4. Wire selection in the corresponding tier runner in `src/router/`.
+5. Add threshold-boundary tests and a Criterion benchmark.
+
+Engines must not allocate on the per-request hot path where avoidable, and must keep their documented p99 within the tier's budget.
+
+---
+
+## Failure Modes and Fallback Behavior
+
+- **Tier pass-through:** low confidence is not an error. It is the normal escalation path.
+- **Model load failure at startup:** the router should fail fast rather than silently run with a tier missing. Disabling a tier must be an explicit configuration choice.
+- **Tier 4 timeout:** when `timeout_ms` elapses, the request escalates to tier 5 rather than blocking.
+- **Tier 5 unavailable:** the terminal tier is an external dependency. Define and test your degraded-mode policy (default route, error, or retry) before production.
+- **Oversize or malformed payloads:** rejected at tier 1 based on `max_payload_bytes`.
+
+---
+
+## Known Constraints
+
+- The 5 ms p99 SLA applies to traffic resolved within tiers 1 to 3 at the lower end of tier 3's range. Tiers 4 and 5 exceed it by design.
+- Coverage percentages are targets, not guarantees.
+- AVX-512 and NEON acceleration depend on the host CPU. Throughput and latency on other hardware will differ.
+- Thresholds are coupled to specific model artifacts. Swapping or retraining a model requires recalibration.
+
+---
+
+## Contributing
+
+1. Open an issue describing the change before starting large work.
+2. Keep changes to tiers 1 to 3 allocation-free on the hot path.
+3. Include tests and, for any hot-path change, Criterion benchmark results before and after.
+4. Run `cargo fmt`, `cargo clippy --all-targets`, and `cargo test --all-targets` before opening a pull request.
+
+---
+
+## License
+
+See the `LICENSE` file in the repository root.
