@@ -96,7 +96,7 @@ impl Tier2Runner {
         // 4. Defensive Clamping on Calibrated Score
         let calibrated_score = (top_prob * (1.0 + margin)).clamp(0.0, 1.0);
 
-        if calibrated_score >= self.confidence_threshold {
+        if route == Tier2Route::Jev && calibrated_score >= self.confidence_threshold {
             Tier2Outcome::Resolved {
                 route,
                 confidence: top_prob,
@@ -106,11 +106,17 @@ impl Tier2Runner {
             Tier2Outcome::PassThrough {
                 top_guess: route,
                 score: calibrated_score,
-                reason: "below_confidence_threshold",
+                reason: if route == Tier2Route::Jev {
+                    "below_confidence_threshold"
+                } else {
+                    "not_jev"
+                },
             }
         }
     }
 }
+
+//  ========== tests ==========
 
 #[cfg(test)]
 mod tests {
