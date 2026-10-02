@@ -3,3 +3,124 @@
 {"prompt": "What's the weather in Paris?", "label": "jev_capable"}
 {"prompt": "Draft a cover letter for a senior PM role.", "label": "needs_llm"}
 {"prompt": "How many ounces in a cup?", "label": "jev_capable"}
+{"prompt": "17 * 23", "label": "jev_capable"}
+{"prompt": "what is 15% of 240", "label": "jev_capable"}
+{"prompt": "Convert 5 miles to kilometers", "label": "jev_capable"}
+{"prompt": "How many feet in a mile?", "label": "jev_capable"}
+{"prompt": "What time is it in Tokyo?", "label": "jev_capable"}
+{"prompt": "What's the capital of Australia?", "label": "jev_capable"}
+{"prompt": "square root of 144", "label": "jev_capable"}
+{"prompt": "How many days until Christmas?", "label": "jev_capable"}
+{"prompt": "Convert 100 USD to EUR", "label": "jev_capable"}
+{"prompt": "What's today's date?", "label": "jev_capable"}
+{"prompt": "72 fahrenheit in celsius", "label": "jev_capable"}
+{"prompt": "How many tablespoons in a quarter cup?", "label": "jev_capable"}
+{"prompt": "What is 1024 divided by 8?", "label": "jev_capable"}
+{"prompt": "Weather in Chicago tomorrow", "label": "jev_capable"}
+{"prompt": "How many minutes in a day?", "label": "jev_capable"}
+{"prompt": "What's the population of Canada?", "label": "jev_capable"}
+{"prompt": "is 97 a prime number", "label": "jev_capable"}
+{"prompt": "How many grams in a pound?", "label": "jev_capable"}
+{"prompt": "What day of the week is March 3, 2027?", "label": "jev_capable"}
+{"prompt": "3^5", "label": "jev_capable"}
+{"prompt": "What's the stock price of Apple?", "label": "jev_capable"}
+{"prompt": "How many liters in a gallon?", "label": "jev_capable"}
+{"prompt": "Is it going to rain in Seattle today?", "label": "jev_capable"}
+{"prompt": "What is 9 squared?", "label": "jev_capable"}
+{"prompt": "How tall is Mount Everest?", "label": "jev_capable"}
+{"prompt": "Convert 30 minutes to seconds", "label": "jev_capable"}
+{"prompt": "What's the time difference between New York and London?", "label": "jev_capable"}
+{"prompt": "45 + 78 - 12", "label": "jev_capable"}
+{"prompt": "What is the boiling point of water in Fahrenheit?", "label": "jev_capable"}
+{"prompt": "how many cm in an inch", "label": "jev_capable"}
+{"prompt": "What's the exchange rate for yen to dollars?", "label": "jev_capable"}
+{"prompt": "What year did World War II end?", "label": "jev_capable"}
+{"prompt": "What is 20% tip on $85?", "label": "jev_capable"}
+{"prompt": "How many weeks in a year?", "label": "jev_capable"}
+{"prompt": "Temperature in Miami right now", "label": "jev_capable"}
+{"prompt": "What's 12 factorial?", "label": "jev_capable"}
+{"prompt": "How many ounces in a pound?", "label": "jev_capable"}
+{"prompt": "Convert 2.5 kg to pounds", "label": "jev_capable"}
+{"prompt": "What is the area of a circle with radius 4?", "label": "jev_capable"}
+{"prompt": "What's the sunset time in Denver today?", "label": "jev_capable"}
+{"prompt": "1000 minus 387", "label": "jev_capable"}
+{"prompt": "How many seconds in an hour?", "label": "jev_capable"}
+{"prompt": "What's the chemical symbol for gold?", "label": "jev_capable"}
+{"prompt": "What is 7 times 8?", "label": "jev_capable"}
+{"prompt": "How many miles is 10 kilometers?", "label": "jev_capable"}
+{"prompt": "What's the weather like in Berlin?", "label": "jev_capable"}
+{"prompt": "What's 5 feet in meters?", "label": "jev_capable"}
+{"prompt": "Define the word ephemeral", "label": "jev_capable"}
+{"prompt": "How many pints in a quart?", "label": "jev_capable"}
+{"prompt": "What is 18 divided by 4?", "label": "jev_capable"}
+{"prompt": "What's the distance from Boston to Philadelphia?", "label": "jev_capable"}
+{"prompt": "What is the speed of light?", "label": "jev_capable"}
+{"prompt": "How many states are in the US?", "label": "jev_capable"}
+{"prompt": "Current time in Sydney", "label": "jev_capable"}
+{"prompt": "what's 33% of 90", "label": "jev_capable"}
+{"prompt": "How many inches in a yard?", "label": "jev_capable"}
+{"prompt": "How do you say hello in French?", "label": "jev_capable"}
+{"prompt": "What's 25 miles in kilometers?", "label": "jev_capable"}
+{"prompt": "What is the weather forecast for Paris this weekend?", "label": "jev_capable"}
+{"prompt": "Write a 500-word essay on the history of Rome.", "label": "needs_llm"}
+{"prompt": "Explain why the French Revolution happened.", "label": "needs_llm"}
+{"prompt": "Summarize this article in three bullet points.", "label": "needs_llm"}
+{"prompt": "Write a Python function that merges two sorted lists.", "label": "needs_llm"}
+{"prompt": "Help me plan a three-day trip to Lisbon.", "label": "needs_llm"}
+{"prompt": "What are the pros and cons of microservices versus a monolith?", "label": "needs_llm"}
+{"prompt": "Rewrite this email to sound more professional.", "label": "needs_llm"}
+{"prompt": "Compare Kant and Hume on causality.", "label": "needs_llm"}
+{"prompt": "Brainstorm ten names for a coffee shop.", "label": "needs_llm"}
+{"prompt": "How should I negotiate a higher salary?", "label": "needs_llm"}
+{"prompt": "Write a short story about a lighthouse keeper.", "label": "needs_llm"}
+{"prompt": "Debug this stack trace and tell me what went wrong.", "label": "needs_llm"}
+{"prompt": "Explain how transformers work to a high school student.", "label": "needs_llm"}
+{"prompt": "Create a weekly meal plan for a vegetarian athlete.", "label": "needs_llm"}
+{"prompt": "Review my business plan and point out weaknesses.", "label": "needs_llm"}
+{"prompt": "Write a poem about autumn in New York.", "label": "needs_llm"}
+{"prompt": "What's the best way to learn Rust coming from Python?", "label": "needs_llm"}
+{"prompt": "Draft a LinkedIn post announcing our product launch.", "label": "needs_llm"}
+{"prompt": "Analyze the causes of the 2008 financial crisis.", "label": "needs_llm"}
+{"prompt": "Translate this paragraph into Spanish and keep the tone casual.", "label": "needs_llm"}
+{"prompt": "Write a SQL query that finds the top five customers by revenue per region.", "label": "needs_llm"}
+{"prompt": "Give me feedback on my thesis statement.", "label": "needs_llm"}
+{"prompt": "Explain the difference between TCP and UDP and when to use each.", "label": "needs_llm"}
+{"prompt": "Write a speech for my sister's wedding.", "label": "needs_llm"}
+{"prompt": "How do I decide between two job offers?", "label": "needs_llm"}
+{"prompt": "Outline a presentation on cloud cost optimization.", "label": "needs_llm"}
+{"prompt": "Write unit tests for this function.", "label": "needs_llm"}
+{"prompt": "Why do some people procrastinate more than others?", "label": "needs_llm"}
+{"prompt": "Create a study plan for the bar exam.", "label": "needs_llm"}
+{"prompt": "Rewrite this paragraph in the style of Hemingway.", "label": "needs_llm"}
+{"prompt": "Argue both sides of universal basic income.", "label": "needs_llm"}
+{"prompt": "Write a product description for a handmade ceramic mug.", "label": "needs_llm"}
+{"prompt": "Help me write a polite message declining a meeting.", "label": "needs_llm"}
+{"prompt": "Explain the trade-offs between SQL and NoSQL databases.", "label": "needs_llm"}
+{"prompt": "Refactor this class to follow the single responsibility principle.", "label": "needs_llm"}
+{"prompt": "What would a good onboarding process for new engineers look like?", "label": "needs_llm"}
+{"prompt": "Write a cold email to a potential investor.", "label": "needs_llm"}
+{"prompt": "Explain quantum entanglement without using math.", "label": "needs_llm"}
+{"prompt": "Come up with a lesson plan on photosynthesis for fifth graders.", "label": "needs_llm"}
+{"prompt": "Critique the argument in this op-ed.", "label": "needs_llm"}
+{"prompt": "Write a bash script that backs up a directory and rotates old archives.", "label": "needs_llm"}
+{"prompt": "How can I improve my team's communication?", "label": "needs_llm"}
+{"prompt": "Describe the main themes of Moby-Dick.", "label": "needs_llm"}
+{"prompt": "Write a project proposal for migrating our app to Kubernetes.", "label": "needs_llm"}
+{"prompt": "Give me five interview questions for a senior backend engineer and explain what each reveals.", "label": "needs_llm"}
+{"prompt": "Why did the Roman Empire fall?", "label": "needs_llm"}
+{"prompt": "Turn these meeting notes into action items.", "label": "needs_llm"}
+{"prompt": "Write a limerick about a forgetful cat.", "label": "needs_llm"}
+{"prompt": "Explain how compound interest works and show an example for a retirement saver.", "label": "needs_llm"}
+{"prompt": "Draft a performance review for an engineer who exceeded expectations.", "label": "needs_llm"}
+{"prompt": "What should I consider when choosing a programming language for a new startup?", "label": "needs_llm"}
+{"prompt": "Write a persuasive paragraph on why cities should add bike lanes.", "label": "needs_llm"}
+{"prompt": "Help me understand why the borrow checker is complaining about lifetimes.", "label": "needs_llm"}
+{"prompt": "Generate a FAQ for a meal-kit subscription service.", "label": "needs_llm"}
+{"prompt": "Tell me a bedtime story about a dragon who is afraid of fire.", "label": "needs_llm"}
+{"prompt": "Explain the plot of Hamlet and its major symbols.", "label": "needs_llm"}
+{"prompt": "Design a database schema for a library management system.", "label": "needs_llm"}
+{"prompt": "Write a thank-you note to a mentor.", "label": "needs_llm"}
+{"prompt": "Walk me through how to prepare for a system design interview.", "label": "needs_llm"}
+{"prompt": "Write a function that converts miles to kilometers.", "label": "needs_llm"}
+{"prompt": "Explain why the US never adopted the metric system.", "label": "needs_llm"}
+{"prompt": "Write a paragraph describing the weather in Paris in spring.", "label": "needs_llm"}
