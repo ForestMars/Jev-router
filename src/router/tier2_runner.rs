@@ -1,36 +1,41 @@
-// src/router/tier3.rs
+// src/router/Tier2.rs
 
 use fasttext::FastText;
 use std::path::Path;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Tier3Route {
+pub enum Tier2Route {
     Jev,
     LLM,
 }
 
 #[derive(Debug, Clone)]
-pub enum Tier3Outcome {
+pub enum Tier2Outcome {
     Resolved {
-        route: Tier3Route,
+        route: Tier2Route,
         confidence: f32,
         calibrated_score: f32, // Added per ticket spec
     },
     PassThrough {
-        top_guess: Tier3Route,
+        top_guess: Tier2Route,
         score: f32,
         reason: &'static str,
     },
 }
 
-pub struct Tier3Runner {
+pub struct Tier2Runner {
     model: FastText,
     confidence_threshold: f32,
 }
 
-impl Tier3Runner {
+impl Tier2Runner {
     pub fn normalize_input(input: &str) -> String {
-        input.trim().to_lowercase().split_whitespace().collect::<Vec<_>>().join(" ")
+        input
+            .trim()
+            .to_lowercase()
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ")
     }
 
     pub fn new<P: AsRef<Path>>(model_path: P, confidence_threshold: f32) -> Result<Self, String> {
@@ -44,13 +49,13 @@ impl Tier3Runner {
     }
 
     #[inline]
-    pub fn evaluate(&self, prompt: &str) -> Tier3Outcome {
+    pub fn evaluate(&self, prompt: &str) -> Tier2Outcome {
         // 1. Input Normalization pre-pass
         let normalized = Self::normalize_input(prompt);
 
         if normalized.is_empty() {
-            return Tier3Outcome::PassThrough {
-                top_guess: Tier3Route::LLM,
+            return Tier2Outcome::PassThrough {
+                top_guess: Tier2Route::LLM,
                 score: 0.0,
                 reason: "empty_input",
             };
@@ -58,8 +63,8 @@ impl Tier3Runner {
 
         let predictions = self.model.predict(&normalized, 2, 0.0);
         if predictions.is_empty() {
-            return Tier3Outcome::PassThrough {
-                top_guess: Tier3Route::LLM,
+            return Tier2Outcome::PassThrough {
+                top_guess: Tier2Route::LLM,
                 score: 0.0,
                 reason: "no_predictions",
             };
@@ -83,22 +88,22 @@ impl Tier3Runner {
         let margin = (p_jev - p_llm).abs();
 
         let (route, top_prob) = if p_jev >= p_llm {
-            (Tier3Route::Jev, p_jev)
+            (Tier2Route::Jev, p_jev)
         } else {
-            (Tier3Route::LLM, p_llm)
+            (Tier2Route::LLM, p_llm)
         };
 
         // 4. Defensive Clamping on Calibrated Score
         let calibrated_score = (top_prob * (1.0 + margin)).clamp(0.0, 1.0);
 
         if calibrated_score >= self.confidence_threshold {
-            Tier3Outcome::Resolved {
+            Tier2Outcome::Resolved {
                 route,
                 confidence: top_prob,
                 calibrated_score,
             }
         } else {
-            Tier3Outcome::PassThrough {
+            Tier2Outcome::PassThrough {
                 top_guess: route,
                 score: calibrated_score,
                 reason: "below_confidence_threshold",
@@ -117,7 +122,7 @@ mod tests {
         // or consecutive spaces, regardless of input string noise.
         #[test]
         fn prop_normalize_input_invariants(s in ".*") {
-            let normalized = Tier3Runner::normalize_input(&s);
+            let normalized = Tier2Runner::normalize_input(&s);
 
             // Output should always be lowercase
             prop_assert_eq!(&normalized, &normalized.to_lowercase());
@@ -160,6 +165,6 @@ mod tests {
     #[test]
     fn test_whitespace_and_casing_normalization() {
         let raw = "  Hello   WORLD \t\n Test  ";
-        assert_eq!(Tier3Runner::normalize_input(raw), "hello world test");
+        assert_eq!(Tier2Runner::normalize_input(raw), "hello world test");
     }
 }
