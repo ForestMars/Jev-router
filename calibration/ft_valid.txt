@@ -1,1 +1,38 @@
-__label__llm draft a cover letter for a senior pm role.
+__label__jev what is 2+2?
+__label__llm outline a presentation on cloud cost optimization.
+__label__llm synthesize these five documents into a briefing for the board.
+__label__llm identify inconsistencies between this policy and the regulatory guidance below, and judge which are material.
+__label__jev convert 2.5 kg to pounds
+__label__jev how many miles is 10 kilometers?
+__label__jev what is 7 times 8?
+__label__llm write a thank-you note to a mentor.
+__label__llm explain what is driving the change in operating margin.
+__label__llm summarize the key risks in this contract for the general counsel.
+__label__jev what's the population of canada?
+__label__jev what's the time difference between new york and london?
+__label__jev what's the stock price of apple?
+__label__jev calculate the operating margin for each quarter from this income statement.
+__label__jev what's today's date?
+__label__llm help me write a polite message declining a meeting.
+__label__jev how many days until christmas?
+__label__llm explain how transformers work to a high school student.
+__label__llm draft a linkedin post announcing our product launch.
+__label__jev how many feet in a mile?
+__label__llm come up with a lesson plan on photosynthesis for fifth graders.
+__label__llm calculate variance by cost center, then explain the three largest.
+__label__jev what's the weather in paris?
+__label__llm what should i consider when choosing a programming language for a new startup?
+__label__llm why might latency have degraded after the deployment when cpu and memory look normal?
+__label__llm translate this paragraph into spanish and keep the tone casual.
+__label__jev redact all email addresses and phone numbers in this document.
+__label__jev 3^5
+__label__llm explain the plot of hamlet and its major symbols.
+__label__jev current time in sydney
+__label__jev what time is it in tokyo?
+__label__jev convert 5 miles to kilometers
+__label__llm explain how compound interest works and show an example for a retirement saver.
+__label__jev convert 30 minutes to seconds
+__label__jev which employees have a hire date before 1/1/2020 and a grade of l5 or above?
+__label__llm write an announcement of the reorg that is honest without causing alarm.
+__label__llm write a product description for a handmade ceramic mug.
+__label__llm draft the md&a paragraph explaining why gross margin declined this quarter.

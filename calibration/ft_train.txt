@@ -1,4 +1,151 @@
-__label__jev what's the weather in paris?
-__label__jev what is 2+2?
-__label__jev 2+2
+__label__jev what year did world war ii end?
+__label__llm write a speech for my sister's wedding.
+__label__jev list every clause in this agreement that contains the word 'indemnify'.
+__label__llm which of these three vendor proposals is the best fit for our needs, and what are the tradeoffs?
+__label__jev what's the sunset time in denver today?
+__label__jev how many weeks in a year?
+__label__jev what is the speed of light?
+__label__llm what are the pros and cons of microservices versus a monolith?
+__label__jev match these pos to invoices by po number and list pos with no invoice.
+__label__jev how many minutes in a day?
+__label__jev what's the chemical symbol for gold?
+__label__llm what was actually decided in this meeting, and what is still unresolved?
+__label__jev is 97 a prime number
+__label__llm flag invoices that exceed po by more than 2% and tell me which vendors look like a systemic problem.
+__label__llm refactor this class to follow the single responsibility principle.
+__label__llm turn these meeting notes into action items.
+__label__jev what's 5 feet in meters?
+__label__jev 17 * 23
+__label__jev how many seconds in an hour?
+__label__llm critique the argument in this op-ed.
+__label__jev reformat this text as a table with columns name, date, amount.
+__label__llm why did the roman empire fall?
+__label__llm explain the difference between tcp and udp and when to use each.
+__label__llm how should i negotiate a higher salary?
+__label__llm argue both sides of universal basic income.
+__label__llm help me plan a three-day trip to lisbon.
+__label__jev how many pints in a quart?
+__label__jev what is 20% tip on $85?
+__label__llm walk me through how to prepare for a system design interview.
+__label__jev calculate remaining pto balances given an accrual of 1.67 days per month and the days taken.
+__label__jev fill in this email template with the values from the row below.
+__label__llm how can i improve my team's communication?
+__label__jev what's 12 factorial?
+__label__jev how many states are in the us?
+__label__llm should we migrate this workload to a new cloud region, given these constraints?
+__label__llm create a weekly meal plan for a vegetarian athlete.
+__label__jev sum the 'accrued' column by cost center and flag any account where debits and credits don't match.
+__label__jev calculate yoy revenue growth for each business unit from the fy24 and fy25 columns.
+__label__llm compare kant and hume on causality.
+__label__jev check whether each employee's training completion date falls before the compliance deadline.
+__label__llm write a bash script that backs up a directory and rotates old archives.
+__label__jev what is 18 divided by 4?
+__label__llm what second-order effects should we expect if we consolidate the regional distribution centers?
+__label__llm write a project proposal for migrating our app to kubernetes.
+__label__jev parse these log lines and count errors by service name.
+__label__jev how do you say hello in french?
+__label__llm what would a good onboarding process for new engineers look like?
+__label__llm write a paragraph describing the weather in paris in spring.
+__label__llm write a poem about autumn in new york.
+__label__jev how many grams in a pound?
+__label__jev define the word ephemeral
+__label__jev what's the weather like in berlin?
+__label__jev how many ounces in a pound?
+__label__llm what do the free-text responses suggest about morale in the sales org?
+__label__llm draft a negotiation strategy for this renewal, given the vendor's price increase and our usage trends.
+__label__llm reconcile the conflicting figures in these two reports and explain which is more reliable.
+__label__jev deduplicate this vendor list by tax id, keeping the record with the latest update date.
+__label__jev 45 + 78 - 12
+__label__llm write a persuasive paragraph on why cities should add bike lanes.
+__label__jev flag every invoice where the amount differs from its po by more than 2%.
+__label__llm write a python function that merges two sorted lists.
+__label__llm review my business plan and point out weaknesses.
+__label__llm help me understand why the borrow checker is complaining about lifetimes.
+__label__jev convert all weights in this shipping manifest from pounds to kilograms.
+__label__llm explain quantum entanglement without using math.
+__label__llm draft a performance review for an engineer who exceeded expectations.
+__label__jev what is 9 squared?
+__label__llm brainstorm ten names for a coffee shop.
+__label__llm based on this incident timeline, what was the most likely root cause, and what should the postmortem recommend?
+__label__jev list tickets open more than 30 days with priority p1 or p2.
+__label__jev temperature in miami right now
+__label__llm explain why the us never adopted the metric system.
+__label__llm summarize the themes in these engagement survey comments and recommend priorities.
+__label__jev how many liters in a gallon?
+__label__jev what's 33% of 90
+__label__llm draft a cover letter for a senior pm role.
+__label__jev extract all invoice numbers and amounts from this email thread into a table.
+__label__llm how should we restructure this team to reduce overlap with the adjacent group?
+__label__llm give me feedback on my thesis statement.
+__label__llm rewrite this email to sound more professional.
+__label__llm write a function that converts miles to kilometers.
+__label__jev what day of the week is march 3, 2027?
+__label__llm assess whether the indemnification clause in this agreement is favorable to us.
+__label__jev what is 15% of 240
+__label__jev compute days sales outstanding for each customer from these invoice and payment dates.
+__label__jev what is the boiling point of water in fahrenheit?
+__label__llm what risks does concentrating 70% of our spend with this supplier create?
+__label__jev list every contract in this register expiring in the next 90 days.
+__label__llm write unit tests for this function.
+__label__jev convert the attached intercompany invoices from gbp to usd using the month-end rate of 1.27.
+__label__llm sort these accounts by churn risk score and write a recovery plan for the top five.
+__label__llm why do so many invoices from this vendor exceed their pos?
+__label__jev how many tablespoons in a quarter cup?
+__label__llm create a study plan for the bar exam.
+__label__jev 1000 minus 387
+__label__llm how would a regulator likely interpret this disclosure?
+__label__llm draft a response to this employee complaint that balances legal exposure and retention.
+__label__jev extract the effective date, termination date, and notice period for each contract in this table.
+__label__llm debug this stack trace and tell me what went wrong.
+__label__jev list all journal entries over $250,000 posted after the period close date.
 __label__jev how many ounces in a cup?
+__label__llm give me five interview questions for a senior backend engineer and explain what each reveals.
+__label__jev what's the exchange rate for yen to dollars?
+__label__llm design a database schema for a library management system.
+__label__llm generate a faq for a meal-kit subscription service.
+__label__llm what's the best way to learn rust coming from python?
+__label__llm summarize this article in three bullet points.
+__label__llm which line items in this budget request is the cfo most likely to challenge, and how should we defend them?
+__label__jev 2+2
+__label__llm explain the variance between forecast and actuals for emea and what management should do about it.
+__label__jev is it going to rain in seattle today?
+__label__jev weather in chicago tomorrow
+__label__llm write a 500-word essay on the history of rome.
+__label__llm rewrite this paragraph in the style of hemingway.
+__label__jev reformat these phone numbers to e.164.
+__label__jev convert this csv of server inventory to json using the schema below.
+__label__jev what is the weather forecast for paris this weekend?
+__label__jev calculate the reorder quantity for each sku as lead-time demand plus safety stock minus on-hand.
+__label__llm explain why the french revolution happened.
+__label__jev extract all ip addresses and hostnames from this incident log.
+__label__jev how many inches in a yard?
+__label__llm tell me a bedtime story about a dragon who is afraid of fire.
+__label__jev convert 100 usd to eur
+__label__jev square root of 144
+__label__llm write a cold email to a potential investor.
+__label__jev how many cm in an inch
+__label__jev 72 fahrenheit in celsius
+__label__llm extract every date in this contract and tell me which ones create risk for us.
+__label__llm describe the main themes of moby-dick.
+__label__llm write a short story about a lighthouse keeper.
+__label__llm why do some people procrastinate more than others?
+__label__llm prioritize these twelve initiatives against our stated strategic goals and defend the ordering.
+__label__llm do the assumptions in this forecast look aggressive relative to the last three years?
+__label__llm does this clause create indemnification exposure beyond what we normally accept?
+__label__jev total base salary by cost center and sort descending.
+__label__jev group these orders by region and total units shipped.
+__label__llm write a sql query that finds the top five customers by revenue per region.
+__label__jev rank the top 10 suppliers by total spend in fy25.
+__label__jev apply a 3.5% annual escalator to each line of this rate card for years 2 through 5.
+__label__llm what are the strongest counterarguments to this strategy?
+__label__llm write a limerick about a forgetful cat.
+__label__jev map these job titles to the standardized titles in the reference table.
+__label__jev what is 1024 divided by 8?
+__label__jev what's the distance from boston to philadelphia?
+__label__jev what's the capital of australia?
+__label__jev how tall is mount everest?
+__label__llm analyze the causes of the 2008 financial crisis.
+__label__llm explain the trade-offs between sql and nosql databases.
+__label__llm how do i decide between two job offers?
+__label__jev what's 25 miles in kilometers?
+__label__jev what is the area of a circle with radius 4?
