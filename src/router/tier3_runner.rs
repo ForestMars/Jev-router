@@ -14,7 +14,7 @@ pub enum Tier3Outcome {
     Resolved {
         route: Tier3Route,
         confidence: f32,
-        margin: f32,
+        calibrated_score: f32, // Added per ticket spec
     },
     PassThrough {
         top_guess: Tier3Route,
@@ -32,6 +32,7 @@ impl Tier3Runner {
     pub fn normalize_input(input: &str) -> String {
         input.trim().to_lowercase().split_whitespace().collect::<Vec<_>>().join(" ")
     }
+
     pub fn new<P: AsRef<Path>>(model_path: P, confidence_threshold: f32) -> Result<Self, String> {
         let model = FastText::load_model(&model_path)
             .map_err(|e| format!("Failed to load FastText model: {e}"))?;
@@ -44,7 +45,10 @@ impl Tier3Runner {
 
     #[inline]
     pub fn evaluate(&self, prompt: &str) -> Tier3Outcome {
-        if prompt.is_empty() {
+        // 1. Input Normalization pre-pass
+        let normalized = Self::normalize_input(prompt);
+
+        if normalized.is_empty() {
             return Tier3Outcome::PassThrough {
                 top_guess: Tier3Route::LLM,
                 score: 0.0,
@@ -52,7 +56,7 @@ impl Tier3Runner {
             };
         }
 
-        let predictions = self.model.predict(prompt, 2, 0.0);
+        let predictions = self.model.predict(&normalized, 2, 0.0);
         if predictions.is_empty() {
             return Tier3Outcome::PassThrough {
                 top_guess: Tier3Route::LLM,
@@ -61,25 +65,37 @@ impl Tier3Runner {
             };
         }
 
-        let p1 = predictions[0].prob;
-        let p2 = if predictions.len() > 1 {
-            predictions[1].prob
-        } else {
-            0.0
-        };
-        let margin = p1 - p2;
-        let calibrated_score = p1 * (1.0 + margin);
+        // 2. Explicit Class Extraction by label name & Defensive Clamping
+        let mut p_jev = 0.0f32;
+        let mut p_llm = 0.0f32;
 
-        let route = match predictions[0].label.trim_start_matches("__label__") {
-            "jev" => Tier3Route::Jev,
-            _ => Tier3Route::LLM,
+        for pred in &predictions {
+            let clamped_prob = pred.prob.clamp(0.0, 1.0);
+            let label_name = pred.label.trim_start_matches("__label__");
+            match label_name {
+                "jev" => p_jev = clamped_prob,
+                "llm" => p_llm = clamped_prob,
+                _ => {}
+            }
+        }
+
+        // 3. Symmetric Margin Calculation
+        let margin = (p_jev - p_llm).abs();
+
+        let (route, top_prob) = if p_jev >= p_llm {
+            (Tier3Route::Jev, p_jev)
+        } else {
+            (Tier3Route::LLM, p_llm)
         };
+
+        // 4. Defensive Clamping on Calibrated Score
+        let calibrated_score = (top_prob * (1.0 + margin)).clamp(0.0, 1.0);
 
         if calibrated_score >= self.confidence_threshold {
             Tier3Outcome::Resolved {
                 route,
-                confidence: p1,
-                margin,
+                confidence: top_prob,
+                calibrated_score,
             }
         } else {
             Tier3Outcome::PassThrough {
@@ -90,6 +106,7 @@ impl Tier3Runner {
         }
     }
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -122,12 +139,7 @@ mod tests {
             let p_jev = p_jev_raw.clamp(0.0, 1.0);
             let p_llm = p_llm_raw.clamp(0.0, 1.0);
 
-            let (top_prob, _) = if p_jev >= p_llm {
-                (p_jev, Tier3Route::Jev)
-            } else {
-                (p_llm, Tier3Route::LLM)
-            };
-
+            let top_prob = p_jev.max(p_llm);
             let margin = (p_jev - p_llm).abs();
             let calibrated_score = (top_prob * (1.0 + margin)).clamp(0.0, 1.0);
 
@@ -143,5 +155,11 @@ mod tests {
             let margin2 = (b - a).abs();
             prop_assert_eq!(margin1, margin2);
         }
+    }
+
+    #[test]
+    fn test_whitespace_and_casing_normalization() {
+        let raw = "  Hello   WORLD \t\n Test  ";
+        assert_eq!(Tier3Runner::normalize_input(raw), "hello world test");
     }
 }
