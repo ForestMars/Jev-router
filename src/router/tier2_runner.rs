@@ -1,4 +1,4 @@
-// src/router/Tier2.rs
+// src/router/tier2_runner.rs
 
 use fasttext::FastText;
 use std::path::Path;
@@ -26,6 +26,26 @@ pub enum Tier2Outcome {
 pub struct Tier2Runner {
     model: FastText,
     confidence_threshold: f32,
+}
+
+/// Pure scoring step. Returns (route, top_prob, calibrated_score).
+///
+/// calibrated_score is the margin between the two class probabilities, so it
+/// stays strictly increasing in model certainty and only reaches 1.0 when the
+/// model puts all mass on one label.
+pub fn calibrate(p_jev: f32, p_llm: f32) -> (Tier2Route, f32, f32) {
+    let p_jev = p_jev.clamp(0.0, 1.0);
+    let p_llm = p_llm.clamp(0.0, 1.0);
+
+    let margin = (p_jev - p_llm).abs();
+
+    let (route, top_prob) = if p_jev >= p_llm {
+        (Tier2Route::Jev, p_jev)
+    } else {
+        (Tier2Route::LLM, p_llm)
+    };
+
+    (route, top_prob, margin.clamp(0.0, 1.0))
 }
 
 impl Tier2Runner {
@@ -70,31 +90,30 @@ impl Tier2Runner {
             };
         }
 
-        // 2. Explicit Class Extraction by label name & Defensive Clamping
+        // Ground truth trace: every label the model returned, with its raw probability.
+        tracing::info!(
+            "tier2 raw predictions: {:?}",
+            predictions
+                .iter()
+                .map(|p| (p.label.as_str(), p.prob))
+                .collect::<Vec<_>>()
+        );
+
+        // 2. Explicit Class Extraction by label name
         let mut p_jev = 0.0f32;
         let mut p_llm = 0.0f32;
 
         for pred in &predictions {
-            let clamped_prob = pred.prob.clamp(0.0, 1.0);
             let label_name = pred.label.trim_start_matches("__label__");
             match label_name {
-                "jev" => p_jev = clamped_prob,
-                "llm" => p_llm = clamped_prob,
+                "jev" => p_jev = pred.prob,
+                "llm" => p_llm = pred.prob,
                 _ => {}
             }
         }
 
-        // 3. Symmetric Margin Calculation
-        let margin = (p_jev - p_llm).abs();
-
-        let (route, top_prob) = if p_jev >= p_llm {
-            (Tier2Route::Jev, p_jev)
-        } else {
-            (Tier2Route::LLM, p_llm)
-        };
-
-        // 4. Defensive Clamping on Calibrated Score
-        let calibrated_score = (top_prob * (1.0 + margin)).clamp(0.0, 1.0);
+        // 3. Margin-based calibration with defensive clamping
+        let (route, top_prob, calibrated_score) = calibrate(p_jev, p_llm);
 
         if route == Tier2Route::Jev && calibrated_score >= self.confidence_threshold {
             Tier2Outcome::Resolved {
@@ -130,42 +149,48 @@ mod tests {
         fn prop_normalize_input_invariants(s in ".*") {
             let normalized = Tier2Runner::normalize_input(&s);
 
-            // Output should always be lowercase
             prop_assert_eq!(&normalized, &normalized.to_lowercase());
-
-            // Output should never have leading/trailing whitespace
             prop_assert_eq!(&normalized, normalized.trim());
-
-            // Output should never contain double spaces
             prop_assert!(!normalized.contains("  "));
         }
 
-        // 2. Invariant: Probability clamping and margin math must always lie in [0.0, 1.0]
-        // even with extreme or out-of-bounds float inputs from bindings.
+        // 2. Invariant: the real calibrate() output always lies in [0.0, 1.0]
+        // even with out-of-bounds float inputs from bindings.
         #[test]
         fn prop_calibrated_score_bounds(
-            p_jev_raw in -100.0f32..100.0f32,
-            p_llm_raw in -100.0f32..100.0f32
+            p_jev in -100.0f32..100.0f32,
+            p_llm in -100.0f32..100.0f32
         ) {
-            let p_jev = p_jev_raw.clamp(0.0, 1.0);
-            let p_llm = p_llm_raw.clamp(0.0, 1.0);
+            let (_, top_prob, calibrated) = calibrate(p_jev, p_llm);
 
-            let top_prob = p_jev.max(p_llm);
-            let margin = (p_jev - p_llm).abs();
-            let calibrated_score = (top_prob * (1.0 + margin)).clamp(0.0, 1.0);
-
-            // Invariants
-            prop_assert!(margin >= 0.0 && margin <= 1.0);
-            prop_assert!(calibrated_score >= 0.0 && calibrated_score <= 1.0);
+            prop_assert!(top_prob >= 0.0 && top_prob <= 1.0);
+            prop_assert!(calibrated >= 0.0 && calibrated <= 1.0);
         }
 
-        // 3. Invariant: Margin calculation must be symmetric regardless of label order.
+        // 3. Invariant: swapping the two class probabilities leaves the score unchanged.
         #[test]
-        fn prop_margin_is_symmetric(a in 0.0f32..1.0f32, b in 0.0f32..1.0f32) {
-            let margin1 = (a - b).abs();
-            let margin2 = (b - a).abs();
-            prop_assert_eq!(margin1, margin2);
+        fn prop_score_is_symmetric(a in 0.0f32..1.0f32, b in 0.0f32..1.0f32) {
+            let (_, _, s1) = calibrate(a, b);
+            let (_, _, s2) = calibrate(b, a);
+            prop_assert_eq!(s1, s2);
         }
+
+        // 4. Invariant: more certainty never lowers the score.
+        #[test]
+        fn prop_score_monotonic_in_certainty(a in 0.5f32..1.0f32, b in 0.5f32..1.0f32) {
+            let (lo, hi) = if a <= b { (a, b) } else { (b, a) };
+            let (_, _, s_lo) = calibrate(lo, 1.0 - lo);
+            let (_, _, s_hi) = calibrate(hi, 1.0 - hi);
+            prop_assert!(s_lo <= s_hi);
+        }
+    }
+
+    #[test]
+    fn test_scores_discriminate_mid_range() {
+        let (_, _, weak) = calibrate(0.60, 0.40);
+        let (_, _, strong) = calibrate(0.90, 0.10);
+        assert!(weak < strong);
+        assert!(strong < 1.0);
     }
 
     #[test]
