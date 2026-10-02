@@ -29,11 +29,12 @@ pub struct Tier3Runner {
 }
 
 impl Tier3Runner {
+    pub fn normalize_input(input: &str) -> String {
+        input.trim().to_lowercase().split_whitespace().collect::<Vec<_>>().join(" ")
+    }
     pub fn new<P: AsRef<Path>>(model_path: P, confidence_threshold: f32) -> Result<Self, String> {
-        let mut model = FastText::new();
-        model
-            .load_model(model_path.as_ref().to_str().ok_or("Invalid path string")?)
-            .map_err(|e| format!("Failed loading Tier 2 FastText model: {:?}", e))?;
+        let model = FastText::load_model(&model_path)
+            .map_err(|e| format!("Failed to load FastText model: {e}"))?;
 
         Ok(Self {
             model,
@@ -51,16 +52,21 @@ impl Tier3Runner {
             };
         }
 
-        let predictions = match self.model.predict(prompt, 2, 0.0) {
-            Ok(preds) if !preds.is_empty() => preds,
-            _ => {
-                return Tier3Outcome::PassThrough {
-                    top_guess: Tier3Route::LLM,
-                    score: 0.0,
-                    reason: "prediction_failed",
-                }
-            }
-        };
+        let predictions = self.model.predict(prompt, 2, 0.0);
+        if predictions.is_empty() {
+            return Tier3Outcome::PassThrough {
+                top_guess: Tier3Route::LLM,
+                score: 0.0,
+                reason: "no_predictions",
+            };
+        }
+
+
+
+
+
+
+
 
         let p1 = predictions[0].prob;
         let p2 = if predictions.len() > 1 {
@@ -101,7 +107,7 @@ mod tests {
         // or consecutive spaces, regardless of input string noise.
         #[test]
         fn prop_normalize_input_invariants(s in ".*") {
-            let normalized = Tier2Runner::normalize_input(&s);
+            let normalized = Tier3Runner::normalize_input(&s);
 
             // Output should always be lowercase
             prop_assert_eq!(&normalized, &normalized.to_lowercase());
@@ -124,9 +130,9 @@ mod tests {
             let p_llm = p_llm_raw.clamp(0.0, 1.0);
 
             let (top_prob, _) = if p_jev >= p_llm {
-                (p_jev, Tier2Route::Jev)
+                (p_jev, Tier3Route::Jev)
             } else {
-                (p_llm, Tier2Route::LLM)
+                (p_llm, Tier3Route::LLM)
             };
 
             let margin = (p_jev - p_llm).abs();

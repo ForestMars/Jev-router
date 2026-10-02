@@ -1,9 +1,15 @@
+// src/main.rs
+
+pub mod router;
 pub mod tier3 {
     tonic::include_proto!("tier3");
 }
 
-use tier3::tier3_scorer_client::Tier3ScorerClient;
-use tier3::ScoreRequest;
+use router::tier3_proto::tier3_scorer_client::Tier3ScorerClient;
+use router::tier3_proto::ScoreRequest;
+
+
+
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
