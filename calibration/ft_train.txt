@@ -1,0 +1,4 @@
+__label__jev what's the weather in paris?
+__label__jev what is 2+2?
+__label__jev 2+2
+__label__jev how many ounces in a cup?
