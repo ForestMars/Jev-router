@@ -1,0 +1,4 @@
+{"prompt": "2+2", "label": "jev_capable", "source": "exemplar", "split": "train"}
+{"prompt": "How many ounces in a cup?", "label": "jev_capable", "source": "exemplar", "split": "train"}
+{"prompt": "What's the weather in Paris?", "label": "jev_capable", "source": "exemplar", "split": "calibration"}
+{"prompt": "Draft a cover letter for a senior PM role.", "label": "needs_llm", "source": "exemplar", "split": "calibration"}

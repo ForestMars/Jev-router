@@ -1,0 +1,17 @@
+syntax = "proto3";
+package tier3;
+
+service Tier3Scorer {
+  rpc Score (ScoreRequest) returns (ScoreResponse);
+}
+
+message ScoreRequest {
+  string prompt = 1;
+}
+
+message ScoreResponse {
+  float raw_score = 1;
+  float confidence = 2;
+  string label = 3;
+  string model_id = 4;
+}

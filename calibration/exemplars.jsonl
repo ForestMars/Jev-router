@@ -1,0 +1,5 @@
+{"prompt": "2+2", "label": "jev_capable"}
+{"prompt": "What is 2+2?", "label": "jev_capable"}
+{"prompt": "What's the weather in Paris?", "label": "jev_capable"}
+{"prompt": "Draft a cover letter for a senior PM role.", "label": "needs_llm"}
+{"prompt": "How many ounces in a cup?", "label": "jev_capable"}

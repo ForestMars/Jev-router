@@ -1,0 +1,14 @@
+[project]
+name = "stub-sidecar"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "grpcio>=1.84.0",
+]
+
+[dependency-groups]
+dev = [
+    "grpcio-tools>=1.84.0",
+]

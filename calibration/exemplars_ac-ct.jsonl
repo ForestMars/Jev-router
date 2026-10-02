@@ -1,0 +1,63 @@
+{"text": "Prioritize these twelve initiatives against our stated strategic goals and defend the ordering.", "label": "needs_llm"}
+{"text": "List every contract in this register expiring in the next 90 days.", "label": "jev_capable"}
+{"text": "Summarize the themes in these engagement survey comments and recommend priorities.", "label": "needs_llm"}
+{"text": "Do the assumptions in this forecast look aggressive relative to the last three years?", "label": "needs_llm"}
+{"text": "List tickets open more than 30 days with priority P1 or P2.", "label": "jev_capable"}
+{"text": "Extract every date in this contract and tell me which ones create risk for us.", "label": "needs_llm"}
+{"text": "What was actually decided in this meeting, and what is still unresolved?", "label": "needs_llm"}
+{"text": "Identify inconsistencies between this policy and the regulatory guidance below, and judge which are material.", "label": "needs_llm"}
+{"text": "Draft a negotiation strategy for this renewal, given the vendor's price increase and our usage trends.", "label": "needs_llm"}
+{"text": "Reformat this text as a table with columns Name, Date, Amount.", "label": "jev_capable"}
+{"text": "Sort these accounts by churn risk score and write a recovery plan for the top five.", "label": "needs_llm"}
+{"text": "Explain the variance between forecast and actuals for EMEA and what management should do about it.", "label": "needs_llm"}
+{"text": "Extract all IP addresses and hostnames from this incident log.", "label": "jev_capable"}
+{"text": "List every clause in this agreement that contains the word 'indemnify'.", "label": "jev_capable"}
+{"text": "Flag every invoice where the amount differs from its PO by more than 2%.", "label": "jev_capable"}
+{"text": "Parse these log lines and count errors by service name.", "label": "jev_capable"}
+{"text": "Rank the top 10 suppliers by total spend in FY25.", "label": "jev_capable"}
+{"text": "Reformat these phone numbers to E.164.", "label": "jev_capable"}
+{"text": "Should we migrate this workload to a new cloud region, given these constraints?", "label": "needs_llm"}
+{"text": "Based on this incident timeline, what was the most likely root cause, and what should the postmortem recommend?", "label": "needs_llm"}
+{"text": "List all journal entries over $250,000 posted after the period close date.", "label": "jev_capable"}
+{"text": "Fill in this email template with the values from the row below.", "label": "jev_capable"}
+{"text": "How would a regulator likely interpret this disclosure?", "label": "needs_llm"}
+{"text": "Apply a 3.5% annual escalator to each line of this rate card for years 2 through 5.", "label": "jev_capable"}
+{"text": "What are the strongest counterarguments to this strategy?", "label": "needs_llm"}
+{"text": "Extract all invoice numbers and amounts from this email thread into a table.", "label": "jev_capable"}
+{"text": "Summarize the key risks in this contract for the general counsel.", "label": "needs_llm"}
+{"text": "Redact all email addresses and phone numbers in this document.", "label": "jev_capable"}
+{"text": "How should we restructure this team to reduce overlap with the adjacent group?", "label": "needs_llm"}
+{"text": "Extract the effective date, termination date, and notice period for each contract in this table.", "label": "jev_capable"}
+{"text": "Check whether each employee's training completion date falls before the compliance deadline.", "label": "jev_capable"}
+{"text": "Convert the attached intercompany invoices from GBP to USD using the month-end rate of 1.27.", "label": "jev_capable"}
+{"text": "What second-order effects should we expect if we consolidate the regional distribution centers?", "label": "needs_llm"}
+{"text": "Convert all weights in this shipping manifest from pounds to kilograms.", "label": "jev_capable"}
+{"text": "What do the free-text responses suggest about morale in the sales org?", "label": "needs_llm"}
+{"text": "Calculate the reorder quantity for each SKU as lead-time demand plus safety stock minus on-hand.", "label": "jev_capable"}
+{"text": "Assess whether the indemnification clause in this agreement is favorable to us.", "label": "needs_llm"}
+{"text": "Total base salary by cost center and sort descending.", "label": "jev_capable"}
+{"text": "Explain what is driving the change in operating margin.", "label": "needs_llm"}
+{"text": "Write an announcement of the reorg that is honest without causing alarm.", "label": "needs_llm"}
+{"text": "What risks does concentrating 70% of our spend with this supplier create?", "label": "needs_llm"}
+{"text": "Draft the MD&A paragraph explaining why gross margin declined this quarter.", "label": "needs_llm"}
+{"text": "Reconcile the conflicting figures in these two reports and explain which is more reliable.", "label": "needs_llm"}
+{"text": "Which employees have a hire date before 1/1/2020 and a grade of L5 or above?", "label": "jev_capable"}
+{"text": "Does this clause create indemnification exposure beyond what we normally accept?", "label": "needs_llm"}
+{"text": "Flag invoices that exceed PO by more than 2% and tell me which vendors look like a systemic problem.", "label": "needs_llm"}
+{"text": "Compute days sales outstanding for each customer from these invoice and payment dates.", "label": "jev_capable"}
+{"text": "Group these orders by region and total units shipped.", "label": "jev_capable"}
+{"text": "Which of these three vendor proposals is the best fit for our needs, and what are the tradeoffs?", "label": "needs_llm"}
+{"text": "Calculate the operating margin for each quarter from this income statement.", "label": "jev_capable"}
+{"text": "Which line items in this budget request is the CFO most likely to challenge, and how should we defend them?", "label": "needs_llm"}
+{"text": "Synthesize these five documents into a briefing for the board.", "label": "needs_llm"}
+{"text": "Draft a response to this employee complaint that balances legal exposure and retention.", "label": "needs_llm"}
+{"text": "Sum the 'Accrued' column by cost center and flag any account where debits and credits don't match.", "label": "jev_capable"}
+{"text": "Calculate variance by cost center, then explain the three largest.", "label": "needs_llm"}
+{"text": "Match these POs to invoices by PO number and list POs with no invoice.", "label": "jev_capable"}
+{"text": "Calculate remaining PTO balances given an accrual of 1.67 days per month and the days taken.", "label": "jev_capable"}
+{"text": "Map these job titles to the standardized titles in the reference table.", "label": "jev_capable"}
+{"text": "Convert this CSV of server inventory to JSON using the schema below.", "label": "jev_capable"}
+{"text": "Why might latency have degraded after the deployment when CPU and memory look normal?", "label": "needs_llm"}
+{"text": "Calculate YoY revenue growth for each business unit from the FY24 and FY25 columns.", "label": "jev_capable"}
+{"text": "Deduplicate this vendor list by tax ID, keeping the record with the latest update date.", "label": "jev_capable"}
+{"text": "Why do so many invoices from this vendor exceed their POs?", "label": "needs_llm"}
