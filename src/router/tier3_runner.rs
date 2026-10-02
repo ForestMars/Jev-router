@@ -61,13 +61,6 @@ impl Tier3Runner {
             };
         }
 
-
-
-
-
-
-
-
         let p1 = predictions[0].prob;
         let p2 = if predictions.len() > 1 {
             predictions[1].prob
