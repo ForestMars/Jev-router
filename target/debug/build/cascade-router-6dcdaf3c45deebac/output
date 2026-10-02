@@ -1,2 +1,0 @@
-cargo:rerun-if-changed=proto/tier3.proto
-cargo:rerun-if-changed=proto
