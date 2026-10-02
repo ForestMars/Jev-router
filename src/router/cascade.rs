@@ -75,7 +75,7 @@ pub async fn route(
     // Tier 1 slots in here once built, with the same TRY / RESOLVED / ESCALATE pattern.
 
     // ---- Tier 2: FastText, in-process ----
-    info!("[req {req}] TRY tier=2 (fasttext)");
+    info!("[req {req}] TRY tier=2 (fasttext) prompt={prompt:?}");
     let t = Instant::now();
     match t2.evaluate(prompt) {
         
@@ -119,6 +119,6 @@ pub async fn route(
     }
 
     // ---- Tier 4: the floor. Always terminates. ----
-    info!("[req {req}] TRY       tier=4 (llm floor)");
+    info!("[req {req}] TRY tier=4 (llm floor)");
     resolved(req, 4, "llm-floor", Backend::Llm, None, Duration::ZERO, start.elapsed())
 }
