@@ -1,4 +1,9 @@
-# Cascade Router Engine
+![Polyglot UI](/assets/will-it-jev.jpeg)
+
+
+<h1 align="center">WILL IT JEV? </h1>
+
+## Cascade Router Engine
 
 An in-process, high-throughput request routing engine written in Rust. It classifies incoming prompts and routes them to discriminative (Jev) or generative (LLM) execution pathways with a **p99 decision latency under 5 ms** for the overwhelming majority of traffic.
 
