@@ -96,8 +96,8 @@ pub fn decide(
     let confidence = if confidence.is_nan() { 0.0 } else { confidence.clamp(0.0, 1.0) };
 
     let route = match label {
-        "jev" => Tier3Route::Jev,
-        "llm" => Tier3Route::Llm,
+        "jev_capable" => Tier3Route::Jev,
+        "needs_llm" => Tier3Route::Llm,
         _ => return pass(None, confidence, "unknown_label"),
     };
 
@@ -129,11 +129,11 @@ mod tests {
     fn jev_needs_the_higher_bar() {
         // 0.90 clears the LLM bar but not the Jev bar.
         assert!(matches!(
-            decide("jev", 0.90, "harrier", 0.95, 0.70),
+            decide("jev_capable", 0.90, "harrier", 0.95, 0.70),
             Tier3Outcome::PassThrough { reason: "below_threshold", .. }
         ));
         assert!(matches!(
-            decide("llm", 0.90, "harrier", 0.95, 0.70),
+            decide("needs_llm", 0.90, "harrier", 0.95, 0.70),
             Tier3Outcome::Resolved { route: Tier3Route::Llm, .. }
         ));
     }
@@ -141,7 +141,7 @@ mod tests {
     #[test]
     fn jev_resolves_above_its_bar() {
         assert!(matches!(
-            decide("jev", 0.97, "harrier", 0.95, 0.70),
+            decide("jev_capable", 0.97, "harrier", 0.95, 0.70),
             Tier3Outcome::Resolved { route: Tier3Route::Jev, .. }
         ));
     }
@@ -153,7 +153,7 @@ mod tests {
             Tier3Outcome::PassThrough { reason: "unknown_label", .. }
         ));
         assert!(matches!(
-            decide("jev", f32::NAN, "harrier", 0.95, 0.70),
+            decide("jev_capable", f32::NAN, "harrier", 0.95, 0.70),
             Tier3Outcome::PassThrough { .. }
         ));
     }
