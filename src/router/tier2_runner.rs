@@ -3,6 +3,9 @@
 use fasttext::FastText;
 use std::path::Path;
 
+/// Labels the model must carry, as they appear after stripping `__label__`.
+const REQUIRED_LABELS: [&str; 2] = ["jev", "llm"];
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Tier2Route {
     Jev,
@@ -48,6 +51,29 @@ pub fn calibrate(p_jev: f32, p_llm: f32) -> (Tier2Route, f32, f32) {
     (route, top_prob, margin.clamp(0.0, 1.0))
 }
 
+/// Pure label check. Accepts labels with or without the `__label__` prefix and
+/// fails with the list of what the model actually contains.
+pub fn check_labels(labels: &[String]) -> Result<(), String> {
+    let names: Vec<&str> = labels
+        .iter()
+        .map(|l| l.trim_start_matches("__label__"))
+        .collect();
+
+    let missing: Vec<&str> = REQUIRED_LABELS
+        .iter()
+        .copied()
+        .filter(|req| !names.contains(req))
+        .collect();
+
+    if missing.is_empty() {
+        Ok(())
+    } else {
+        Err(format!(
+            "Tier2 model is missing required label(s) {missing:?}; model contains {names:?}"
+        ))
+    }
+}
+
 impl Tier2Runner {
     pub fn normalize_input(input: &str) -> String {
         input
@@ -61,6 +87,9 @@ impl Tier2Runner {
     pub fn new<P: AsRef<Path>>(model_path: P, confidence_threshold: f32) -> Result<Self, String> {
         let model = FastText::load_model(&model_path)
             .map_err(|e| format!("Failed to load FastText model: {e}"))?;
+
+        let (labels, _freqs) = model.get_labels();
+        check_labels(&labels)?;
 
         Ok(Self {
             model,
@@ -197,5 +226,38 @@ mod tests {
     fn test_whitespace_and_casing_normalization() {
         let raw = "  Hello   WORLD \t\n Test  ";
         assert_eq!(Tier2Runner::normalize_input(raw), "hello world test");
+    }
+
+    #[test]
+    fn test_check_labels_accepts_both_labels() {
+        let labels = vec!["__label__jev".to_string(), "__label__llm".to_string()];
+        assert!(check_labels(&labels).is_ok());
+    }
+
+    #[test]
+    fn test_check_labels_accepts_unprefixed_labels() {
+        let labels = vec!["llm".to_string(), "jev".to_string()];
+        assert!(check_labels(&labels).is_ok());
+    }
+
+    #[test]
+    fn test_check_labels_rejects_single_label_model() {
+        let labels = vec!["__label__jev".to_string()];
+        let err = check_labels(&labels).unwrap_err();
+        assert!(err.contains("llm"));
+    }
+
+    #[test]
+    fn test_check_labels_rejects_wrong_label_names() {
+        let labels = vec![
+            "__label__jev_capable".to_string(),
+            "__label__needs_llm".to_string(),
+        ];
+        assert!(check_labels(&labels).is_err());
+    }
+
+    #[test]
+    fn test_check_labels_rejects_empty() {
+        assert!(check_labels(&[]).is_err());
     }
 }

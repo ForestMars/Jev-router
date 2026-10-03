@@ -73,6 +73,24 @@ pub async fn route(
     let start = Instant::now();
 
     // Tier 1 slots in here once built, with the same TRY / RESOLVED / ESCALATE pattern.
+     info!("[req {req}] TRY tier=1 (heuristic) prompt={prompt:?}");
+    let t = Instant::now();
+    let r1 = t1.classify(prompt);
+    info!(
+        "[req {req}] SCORE  tier=1 conf={:.3} decided={} reason={}",
+        r1.confidence, r1.decided, r1.reason
+    );
+
+    if r1.decided && r1.confidence > AMBIGUITY_UPPER_BOUND {
+        return resolved(req, 1, "heuristic", Backend::Jev, Some(r1.confidence), t.elapsed(), start.elapsed());
+    }
+
+    escalate(
+        req, 1, 2,
+        if r1.decided { "not_jev" } else { "ambiguous" },
+        format!("conf={:.3} reason={}", r1.confidence, r1.reason),
+        t.elapsed(),
+    );
 
     // ---- Tier 2: FastText, in-process ----
     info!("[req {req}] TRY tier=2 (fasttext) prompt={prompt:?}");

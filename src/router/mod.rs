@@ -1,6 +1,7 @@
 // src/router/mod.rs
 
 pub mod cascade;
+pub mod tier1_runner;
 pub mod tier2_runner;
 pub mod tier3_runner;
 
