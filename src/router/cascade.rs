@@ -10,6 +10,7 @@ use std::time::{Duration, Instant};
 
 use tracing::{info, warn};
 
+use super::tier1_runner::{Tier1Engine, AMBIGUITY_UPPER_BOUND};
 use super::tier2_runner::{Tier2Outcome, Tier2Route, Tier2Runner};
 use super::tier3_runner::{Tier3Outcome, Tier3Route, Tier3Runner};
 
@@ -66,14 +67,15 @@ fn resolved(
 pub async fn route(
     req: u64,
     prompt: &str,
+    t1: &Tier1Engine,
     t2: &Tier2Runner,
     t3: &Tier3Runner,
     budget: Duration,
 ) -> Decision {
     let start = Instant::now();
 
-    // Tier 1 slots in here once built, with the same TRY / RESOLVED / ESCALATE pattern.
-     info!("[req {req}] TRY tier=1 (heuristic) prompt={prompt:?}");
+    // ---- Tier 1: heuristic pattern engine, in-process ----
+    info!("[req {req}] TRY tier=1 (heuristic) prompt={prompt:?}");
     let t = Instant::now();
     let r1 = t1.classify(prompt);
     info!(
