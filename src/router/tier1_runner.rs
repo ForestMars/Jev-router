@@ -1,3 +1,5 @@
+// src/router/tier1_runner.rs
+
 use aho_corasick::{AhoCorasick, AhoCorasickBuilder, MatchKind};
 use arc_swap::ArcSwap;
 use serde::Deserialize;
@@ -96,6 +98,7 @@ impl Tier1Engine {
     }
 
     /// Atomically swaps the active pattern state in < 100ns without reader locks.
+    #[allow(dead_code)]
     pub fn reload(&self, new_automaton: Tier1Automaton) {
         self.automaton.store(Arc::new(new_automaton));
     }

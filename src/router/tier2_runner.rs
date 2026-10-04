@@ -2,6 +2,7 @@
 
 use fasttext::FastText;
 use std::path::Path;
+use tracing::{info, instrument};
 
 /// Labels the model must carry, as they appear after stripping `__label__`.
 const REQUIRED_LABELS: [&str; 2] = ["jev", "llm"];
