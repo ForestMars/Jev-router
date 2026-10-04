@@ -60,7 +60,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Placeholder thresholds and paths: use your tuned values.
     let tier1_path = std::env::var("TIER1_CONFIG").unwrap_or_else(|_| "config/tier1.toml".into());
-    let t1 = Tier1Engine::new(Tier1Automaton::from_toml_file(&tier1_path)?);
+    // let t1 = Tier1Engine::new(Tier1Automaton::from_toml_file(&tier1_path)?);
+    let t1 = Tier1Engine::new(Tier1Automaton::from_toml_file(&tier1_path)?)?;
 
     let model_path = std::env::var("FASTTEXT_MODEL").unwrap_or_else(|_| "models/tier2.bin".into());
     let t2 = Tier2Runner::new(&model_path, 0.95)?;

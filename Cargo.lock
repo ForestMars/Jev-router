@@ -178,6 +178,7 @@ dependencies = [
  "prost 0.13.5",
  "prost-build",
  "serde",
+ "serde_json",
  "strsim",
  "tokio",
  "toml",
