@@ -103,6 +103,26 @@ impl Tier1Engine {
         self.automaton.store(Arc::new(new_automaton));
     }
 
+
+    #[instrument(
+        name = "tier1_classify",
+        skip(self, prompt),
+        fields(
+            tier = 1,
+            engine = "aho_corasick_hybrid",
+            prompt_len = prompt.len(),
+            jev_strong_hits,
+            jev_mod_hits,
+            llm_strong_hits,
+            matches_llm_prefix,
+            starts_polar,
+            is_binary_question,
+            confidence,
+            decided,
+            outcome,
+            reason
+        )
+    )]
     pub fn classify(&self, prompt: &str) -> Tier1Result {
         let text = prompt.trim();
 
