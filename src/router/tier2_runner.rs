@@ -2,6 +2,8 @@
 
 use fasttext::FastText;
 use std::path::Path;
+
+#[allow(unused_imports)]
 use tracing::{info, instrument};
 
 /// Labels the model must carry, as they appear after stripping `__label__`.

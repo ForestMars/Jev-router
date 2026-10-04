@@ -10,28 +10,52 @@ use router::tier1_runner::{Tier1Automaton, Tier1Engine};
 use router::tier2_runner::Tier2Runner;
 use router::tier3_runner::Tier3Runner;
 
+use opentelemetry::trace::TracerProvider as _;
+use opentelemetry_otlp::WithExportConfig;
+use opentelemetry_sdk::trace::{SdkTracerProvider, Tracer};
+
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
+use url::Url;
+
+// Helper function to set up OpenTelemetry Tracer for Tempo
+fn init_opentelemetry_tracer() -> Tracer {
+    let exporter = opentelemetry_otlp::SpanExporter::builder()
+        .with_tonic()
+        .with_endpoint("http://localhost:4317") // Tempo / OTel Collector OTLP endpoint
+        .build()
+        .expect("Failed to build OTLP exporter");
+
+    let provider = SdkTracerProvider::builder()
+        .with_batch_exporter(exporter)
+        .build();
+
+    provider.tracer("cascade-router")
+}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     telemetry::init();
 
+    let otel_tracer = init_opentelemetry_tracer();
+
     // 1. Layer for TRACES (Spans) -> Goes to Grafana Tempo
     // Captures start times, end times, parent-child request spans, and durations
-    let otel_trace_layer = tracing_opentelemetry::layer()
-        .with_tracer(init_opentelemetry_tracer()); 
+    let otel_trace_layer = tracing_opentelemetry::layer().with_tracer(otel_tracer);
 
     // 2. Layer for LOGS (Events) -> Goes to Grafana Loki
     // Captures individual log events (tracing::info!), formats as JSON, or ships via OTLP
-    let loki_log_layer = tracing_loki::builder()
-        .build_url("http://localhost:3100")
-        .unwrap();
+    let (loki_layer, loki_task) = tracing_loki::builder()
+        .label("service", "cascade-router")?
+        .build_url(Url::parse("http://localhost:3100")?)?;
+    
+    tracing::info!("Cascade Router initialized successfully");
+    tokio::spawn(loki_task);
 
     // 3. Register BOTH layers together in the Subscriber Pipeline
     tracing_subscriber::registry()
         .with(otel_trace_layer) // Handles spans -> Tempo
-        .with(loki_log_layer)  // Handles events -> Loki
+        .with(loki_layer)  // Handles events -> Loki
         .init();
 
     // Placeholder thresholds and paths: use your tuned values.
