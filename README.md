@@ -270,7 +270,38 @@ After training, recalibrate `tier2.confidence_threshold` against a held-out set.
 
 ```bash
 cargo test --all-targets
+cargo run --example eval_tier1
+cargo run --example eval_tier2
 ```
+
+The Tier 1 eval reads `evals/tier1/cases.jsonl` and reports Jev precision, coverage,
+LLM-verdict precision, and deferred cases. Review false Jev commits before changing
+the Tier 1 thresholds or pattern set.
+
+The Tier 2 eval reads `calibration/ft_valid.txt`, the held-out split produced from
+the labeled calibration exemplars, and sweeps Jev precision and coverage across
+confidence thresholds. It checks for normalized prompt overlap with
+`calibration/ft_train.txt`, reports Wilson confidence intervals for precision,
+evaluates each distinct Jev score boundary as well as `0` and `1`, and lists false
+Jev commits at the current `0.95` threshold. To evaluate an independent labeled set,
+pass it with `--cases` and provide its training source with `--training-cases`. Use a
+separate representative validation set before changing the production threshold.
+
+For a source-held-out stress test, train without one exemplar file and write all
+generated artifacts outside the repository:
+
+```bash
+python3 calibration/make_fasttext_train.py \
+  --holdout-source calibration/exemplars_ac-ct.jsonl \
+  --output-dir /tmp/tier2-source-holdout
+cargo run --example eval_tier2 -- \
+  --model /tmp/tier2-source-holdout/tier2.bin \
+  --cases /tmp/tier2-source-holdout/ft_holdout.txt \
+  --training-cases /tmp/tier2-source-holdout/ft_train.txt
+```
+
+This checks cross-source generalization, not independent production performance;
+the held-out prompts come from the same labeled exemplar collection.
 
 To see tier-level output while debugging:
 
@@ -317,11 +348,17 @@ The `logging` module provides low-overhead tracing. For every request the router
 
 Tracking **resolved-at-tier distribution over time** is the most important signal. A shift of traffic toward tiers 4 and 5 means thresholds, models, or the input distribution have drifted, and both cost and tail latency will rise.
 
+### Request Capture
+
+Each completed route is sent through a Tokio channel to a background writer, which appends one JSON object per line to `logs/routing_capture.jsonl`. The log directory is created at startup. The record includes a UUID v4 request ID, the request-start UTC timestamp, the raw prompt, SHA-256 hashes of the Tier 1 TOML and Tier 2 model files, the outcomes from tiers that ran, and the final backend, tier, and latency in microseconds. Tier 2 records its raw probability vector; Tier 3 records its score. The sampling probability currently defaults to `1.0`.
+
+The raw prompt is stored verbatim and may contain sensitive data. Restrict access to the capture file and define appropriate retention and cleanup; the writer appends indefinitely and does not rotate the file.
+
 ### Adjusting the Log Level
 
-Log verbosity is controlled with the `RUST_LOG` environment variable. **The default level is `trace`**, which is extremely verbose and includes frame-level output from the `h2` and `hyper` crates.
+Log verbosity is controlled with the `RUST_LOG` environment variable. The default level is `info`. Invalid `RUST_LOG` values cause startup to fail with a configuration error.
 
-Set `RUST_LOG=info` to quiet it down:
+Set `RUST_LOG=debug` for more detail:
 
 ```bash
 RUST_LOG=info cargo run --release
@@ -334,7 +371,7 @@ Common settings:
 | `RUST_LOG=info` | Recommended for normal operation and production |
 | `RUST_LOG=debug` | Router decision detail without frame-level transport output |
 | `RUST_LOG=warn` | Warnings and errors only |
-| `RUST_LOG=trace` | Everything (the default). Use only for short debugging sessions |
+| `RUST_LOG=trace` | Everything, including frame-level transport output. Use only for short debugging sessions |
 | `RUST_LOG=trace,h2=warn,hyper=warn` | Full trace output for the router, with `h2` and `hyper` silenced |
 
 Trace-level logging adds overhead and can distort the latency figures in this document. Benchmark and deploy with `info` or higher.

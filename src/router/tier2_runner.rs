@@ -8,6 +8,7 @@ use tracing::{info, instrument};
 
 /// Labels the model must carry, as they appear after stripping `__label__`.
 const REQUIRED_LABELS: [&str; 2] = ["jev", "llm"];
+pub const DEFAULT_CONFIDENCE_THRESHOLD: f32 = 0.95;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Tier2Route {
@@ -20,12 +21,18 @@ pub enum Tier2Outcome {
     Resolved {
         route: Tier2Route,
         confidence: f32,
-        calibrated_score: f32, // Added per ticket spec
+        calibrated_score: f32,
+        p_jev: f32,
+        p_llm: f32,
+        raw_probabilities: Vec<f32>,
     },
     PassThrough {
         top_guess: Tier2Route,
         score: f32,
         reason: &'static str,
+        p_jev: f32,
+        p_llm: f32,
+        raw_probabilities: Vec<f32>,
     },
 }
 
@@ -110,6 +117,9 @@ impl Tier2Runner {
                 top_guess: Tier2Route::LLM,
                 score: 0.0,
                 reason: "empty_input",
+                p_jev: 0.0,
+                p_llm: 0.0,
+                raw_probabilities: Vec::new(),
             };
         }
 
@@ -119,8 +129,13 @@ impl Tier2Runner {
                 top_guess: Tier2Route::LLM,
                 score: 0.0,
                 reason: "no_predictions",
+                p_jev: 0.0,
+                p_llm: 0.0,
+                raw_probabilities: Vec::new(),
             };
         }
+
+        let raw_probabilities = predictions.iter().map(|prediction| prediction.prob).collect();
 
         // Ground truth trace: every label the model returned, with its raw probability.
         tracing::info!(
@@ -152,6 +167,9 @@ impl Tier2Runner {
                 route,
                 confidence: top_prob,
                 calibrated_score,
+                p_jev,
+                p_llm,
+                raw_probabilities,
             }
         } else {
             Tier2Outcome::PassThrough {
@@ -162,6 +180,9 @@ impl Tier2Runner {
                 } else {
                     "not_jev"
                 },
+                p_jev,
+                p_llm,
+                raw_probabilities,
             }
         }
     }
