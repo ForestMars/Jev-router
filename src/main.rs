@@ -13,10 +13,18 @@ use router::tier3_runner::Tier3Runner;
 use opentelemetry::trace::TracerProvider as _;
 use opentelemetry_otlp::WithExportConfig;
 use opentelemetry_sdk::trace::{SdkTracerProvider, Tracer};
+use sha2::{Digest, Sha256};
+use tokio::fs::OpenOptions;
+use tokio::io::AsyncWriteExt;
 
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use url::Url;
+
+fn sha256_file(path: &str) -> Result<String, std::io::Error> {
+    let contents = std::fs::read(path)?;
+    Ok(format!("{:x}", Sha256::digest(contents)))
+}
 
 // Helper function to set up OpenTelemetry Tracer for Tempo
 fn init_opentelemetry_tracer() -> Tracer {
@@ -58,6 +66,43 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with(loki_layer)  // Handles events -> Loki
         .init();
 
+    let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<telemetry::RouteRecord>();
+    let capture_task = tokio::spawn(async move {
+        if let Err(error) = tokio::fs::create_dir_all("logs").await {
+            tracing::error!("failed to create capture log directory: {error}");
+            return;
+        }
+
+        let mut file = match OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open("logs/routing_capture.jsonl")
+            .await
+        {
+            Ok(file) => file,
+            Err(error) => {
+                tracing::error!("failed to open routing capture file: {error}");
+                return;
+            }
+        };
+
+        while let Some(record) = rx.recv().await {
+            match serde_json::to_string(&record) {
+                Ok(json) => {
+                    if let Err(error) = file.write_all(format!("{json}\n").as_bytes()).await {
+                        tracing::error!("failed to write routing capture record: {error}");
+                        break;
+                    }
+                }
+                Err(error) => tracing::error!("failed to serialize routing capture record: {error}"),
+            }
+        }
+
+        if let Err(error) = file.flush().await {
+            tracing::error!("failed to flush routing capture file: {error}");
+        }
+    });
+
     // Placeholder thresholds and paths: use your tuned values.
     let tier1_path = std::env::var("TIER1_CONFIG").unwrap_or_else(|_| "config/tier1.toml".into());
     // let t1 = Tier1Engine::new(Tier1Automaton::from_toml_file(&tier1_path)?);
@@ -65,6 +110,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let model_path = std::env::var("FASTTEXT_MODEL").unwrap_or_else(|_| "models/tier2.bin".into());
     let t2 = Tier2Runner::new(&model_path, 0.95)?;
+    let hashes = telemetry::Hashes {
+        tier1_toml: sha256_file(&tier1_path)?,
+        tier2_bin: sha256_file(&model_path)?,
+    };
     let t3 = Tier3Runner::new(
         "http://[::1]:50051".into(),
         0.95, // jev bar
@@ -78,7 +127,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "Convert 5 miles to kilometers",
     ] {
         let req = telemetry::next_req_id();
-        let _decision = cascade::route(req, prompt, &t1, &t2, &t3, Duration::from_millis(600)).await;
+        let (_decision, record) = cascade::route(
+            req,
+            prompt,
+            &t1,
+            &t2,
+            &t3,
+            Duration::from_millis(600),
+            &hashes,
+        )
+        .await;
+        if tx.send(record).is_err() {
+            tracing::error!("routing capture writer has stopped");
+        }
     }
+    drop(tx);
+    capture_task.await?;
     Ok(())
 }
