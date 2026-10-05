@@ -27,6 +27,16 @@ fn sha256_file(path: &str) -> Result<String, std::io::Error> {
     Ok(format!("{:x}", Sha256::digest(contents)))
 }
 
+fn default_fasttext_model_path() -> String {
+    const CANDIDATES: [&str; 2] = ["models/tier2_small.bin", "models/tier2.bin"];
+    for candidate in CANDIDATES {
+        if std::path::Path::new(candidate).exists() {
+            return candidate.to_string();
+        }
+    }
+    "models/tier2.bin".to_string()
+}
+
 // Helper function to set up OpenTelemetry Tracer for Tempo
 fn init_opentelemetry_tracer() -> Tracer {
     let exporter = opentelemetry_otlp::SpanExporter::builder()
@@ -107,7 +117,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // let t1 = Tier1Engine::new(Tier1Automaton::from_toml_file(&tier1_path)?);
     let t1 = Tier1Engine::new(Tier1Automaton::from_toml_file(&tier1_path)?)?;
 
-    let model_path = std::env::var("FASTTEXT_MODEL").unwrap_or_else(|_| "models/tier2.bin".into());
+    let model_path = std::env::var("FASTTEXT_MODEL").unwrap_or_else(|_| default_fasttext_model_path());
+    if model_path == "models/tier2.bin" && !std::path::Path::new("models/tier2_small.bin").exists() {
+        tracing::warn!(model_path, "using legacy fastText tier-2 model; prefer models/tier2_small.bin when available");
+    }
     let t2 = Tier2Runner::new(&model_path, DEFAULT_CONFIDENCE_THRESHOLD)?;
     let hashes = telemetry::Hashes {
         tier1_toml: sha256_file(&tier1_path)?,

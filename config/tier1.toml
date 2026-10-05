@@ -44,8 +44,6 @@ exact = [
     "critique",
     "refactor",
     "debug ",
-    "bulleted list",
-    "what should i pack",
 ]
 fuzzy = [
     "summarize",

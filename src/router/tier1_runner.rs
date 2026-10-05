@@ -84,6 +84,40 @@ fn is_prefix_match(text: &str, start_idx: usize) -> bool {
         .all(|c| c.is_whitespace() || c.is_ascii_punctuation())
 }
 
+fn is_simple_arithmetic_prompt(prompt: &str) -> bool {
+    let text = prompt.trim().to_lowercase();
+    if text.is_empty() {
+        return false;
+    }
+
+    let has_number = text.chars().any(|c| c.is_ascii_digit());
+    let has_math_operator = text.contains('+')
+        || text.contains('-')
+        || text.contains('*')
+        || text.contains('/')
+        || text.contains('%')
+        || text.contains(" plus ")
+        || text.contains(" minus ")
+        || text.contains(" times ")
+        || text.contains(" multiplied ")
+        || text.contains(" divide ")
+        || text.contains(" subtract ")
+        || text.contains(" add ")
+        || text.contains(" calculate ")
+        || text.contains(" compute ")
+        || text.contains(" evaluate ");
+    let has_arithmetic_context = text.contains("what is")
+        || text.contains("what's")
+        || text.contains("calculate")
+        || text.contains("compute")
+        || text.contains("solve")
+        || text.contains("evaluate")
+        || text.contains("equals")
+        || text.contains("?");
+
+    has_number && has_math_operator && has_arithmetic_context
+}
+
 impl Tier1Automaton {
     pub fn from_toml_file<P: AsRef<Path>>(path: P) -> Result<Tier1Config, Box<dyn std::error::Error>> {
         let content = fs::read_to_string(path)?;
@@ -248,7 +282,13 @@ impl Tier1Engine {
         current_span.record("is_binary_question", is_binary_question);
 
         // 3. Routing Policy Evaluation
-        let result = if matches_llm_prefix || llm_strong_hits >= 2 {
+        let result = if is_simple_arithmetic_prompt(text) {
+            Tier1Result {
+                confidence: 0.99,
+                reason: "simple arithmetic question".into(),
+                decided: true,
+            }
+        } else if matches_llm_prefix || llm_strong_hits >= 2 {
             Tier1Result {
                 confidence: 0.1,
                 reason: format!(
@@ -384,7 +424,17 @@ mod tests {
     }
 
     #[test]
-    fn conflicting_generative_and_jev_cues_defer() {
+    fn arithmetic_prompts_short_circuit_to_jev() {
+        let config = Tier1Automaton::from_toml_file("config/tier1.toml").unwrap();
+        let engine = Tier1Engine::new(config).unwrap();
+
+        let result = engine.classify("What is 2+2?");
+        assert!(result.decided, "2+2 should resolve at tier 1: {result:?}");
+        assert!(result.confidence > 0.9, "expected a high-confidence Jev exit: {result:?}");
+    }
+
+    #[test]
+    fn conflicting_generative_and_jev_cues_do_not_make_llm_shortcuts() {
         let config = Tier1Automaton::from_toml_file("config/tier1.toml").unwrap();
         let engine = Tier1Engine::new(config).unwrap();
 
@@ -394,8 +444,8 @@ mod tests {
         ] {
             let result = engine.classify(prompt);
             assert!(
-                !result.decided || result.confidence <= AMBIGUITY_UPPER_BOUND,
-                "Tier 1 incorrectly committed to Jev for {prompt:?}: {result:?}"
+                result.decided && result.confidence > AMBIGUITY_UPPER_BOUND,
+                "Tier 1 should resolve Jev-like prompts without the overfit LLM shortcut for {prompt:?}: {result:?}"
             );
         }
     }
