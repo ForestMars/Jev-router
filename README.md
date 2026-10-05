@@ -271,11 +271,17 @@ After training, recalibrate `tier2.confidence_threshold` against a held-out set.
 ```bash
 cargo test --all-targets
 cargo run --example eval_tier1
+cargo run --example eval_tier2
 ```
 
 The Tier 1 eval reads `evals/tier1/cases.jsonl` and reports Jev precision, coverage,
 LLM-verdict precision, and deferred cases. Review false Jev commits before changing
 the Tier 1 thresholds or pattern set.
+
+The Tier 2 eval reads `calibration/ft_valid.txt`, the held-out split produced from
+the labeled calibration exemplars, and sweeps Jev precision and coverage across
+confidence thresholds. It reports false Jev commits at the current `0.95` threshold.
+Use a separate representative validation set before changing the production threshold.
 
 To see tier-level output while debugging:
 

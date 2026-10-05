@@ -1,0 +1,218 @@
+// Evaluates Tier 2's Jev commit threshold on the held-out FastText split.
+//
+// Usage:
+//     cargo run --example eval_tier2
+//     cargo run --example eval_tier2 -- --model models/tier2.bin --cases calibration/ft_valid.txt
+
+#[allow(dead_code)]
+#[path = "../src/router/tier2_runner.rs"]
+mod tier2_runner;
+
+use std::fs;
+use tier2_runner::{Tier2Outcome, Tier2Route, Tier2Runner};
+
+const DEFAULT_THRESHOLD: f32 = 0.95;
+
+struct Case {
+    line: usize,
+    label: Tier2Route,
+    prompt: String,
+}
+
+struct ScoredCase {
+    case: Case,
+    guess: Tier2Route,
+    score: f32,
+}
+
+fn argument(args: &[String], name: &str, default: &str) -> String {
+    args.windows(2)
+        .find(|pair| pair[0] == name)
+        .map(|pair| pair[1].clone())
+        .unwrap_or_else(|| default.to_string())
+}
+
+fn load_cases(path: &str) -> Result<Vec<Case>, Box<dyn std::error::Error>> {
+    let content = fs::read_to_string(path)?;
+    let mut cases = Vec::new();
+
+    for (index, line) in content.lines().enumerate() {
+        if line.trim().is_empty() {
+            continue;
+        }
+
+        let line_number = index + 1;
+        let (label, prompt) = line
+            .split_once(' ')
+            .ok_or_else(|| format!("{path}:{line_number}: expected label and prompt"))?;
+        let label = match label {
+            "__label__jev" => Tier2Route::Jev,
+            "__label__llm" => Tier2Route::LLM,
+            _ => return Err(format!("{path}:{line_number}: unknown label {label:?}").into()),
+        };
+        let prompt = prompt.trim();
+        if prompt.is_empty() {
+            return Err(format!("{path}:{line_number}: prompt is empty").into());
+        }
+
+        cases.push(Case {
+            line: line_number,
+            label,
+            prompt: prompt.to_string(),
+        });
+    }
+
+    if cases.is_empty() {
+        return Err(format!("{path}: no cases").into());
+    }
+
+    Ok(cases)
+}
+
+fn score_case(runner: &Tier2Runner, case: Case) -> ScoredCase {
+    let (guess, score) = match runner.evaluate(&case.prompt) {
+        Tier2Outcome::Resolved {
+            route,
+            calibrated_score,
+            ..
+        } => (route, calibrated_score),
+        Tier2Outcome::PassThrough {
+            top_guess, score, ..
+        } => (top_guess, score),
+    };
+
+    ScoredCase { case, guess, score }
+}
+
+fn commits_jev(case: &ScoredCase, threshold: f32) -> bool {
+    case.guess == Tier2Route::Jev && case.score >= threshold
+}
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let args: Vec<String> = std::env::args().collect();
+    let model_path = argument(&args, "--model", "models/tier2.bin");
+    let cases_path = argument(&args, "--cases", "calibration/ft_valid.txt");
+    let cases = load_cases(&cases_path)?;
+    let runner = Tier2Runner::new(&model_path, DEFAULT_THRESHOLD)?;
+    let scored: Vec<_> = cases
+        .into_iter()
+        .map(|case| score_case(&runner, case))
+        .collect();
+
+    let jev_total = scored
+        .iter()
+        .filter(|result| result.case.label == Tier2Route::Jev)
+        .count();
+    let llm_total = scored.len() - jev_total;
+    if jev_total == 0 || llm_total == 0 {
+        return Err(format!(
+            "{cases_path}: held-out data must contain both labels (Jev={jev_total}, LLM={llm_total})"
+        )
+        .into());
+    }
+
+    println!("model: {model_path}");
+    println!(
+        "held-out cases: {cases_path} ({} rows; Jev={jev_total}, LLM={llm_total})",
+        scored.len()
+    );
+    println!(
+        "\n{:<10} {:>10} {:>12} {:>12} {:>12}",
+        "threshold", "Jev commits", "Jev precision", "Jev coverage", "false Jev"
+    );
+
+    for step in 0..=20 {
+        let threshold = step as f32 * 0.05;
+        let committed = scored
+            .iter()
+            .filter(|result| commits_jev(result, threshold))
+            .count();
+        let correct = scored
+            .iter()
+            .filter(|result| commits_jev(result, threshold) && result.case.label == Tier2Route::Jev)
+            .count();
+        let false_jev = committed - correct;
+        let precision = if committed == 0 {
+            0.0
+        } else {
+            correct as f32 / committed as f32
+        };
+        let coverage = correct as f32 / jev_total as f32;
+
+        println!(
+            "{threshold:<10.2} {committed:>5}/{:<5} {:>11.3} {:>11.3} {:>12}",
+            scored.len(),
+            precision,
+            coverage,
+            false_jev
+        );
+    }
+
+    let committed: Vec<_> = scored
+        .iter()
+        .filter(|result| commits_jev(result, DEFAULT_THRESHOLD))
+        .collect();
+    let false_jev = committed
+        .iter()
+        .filter(|result| result.case.label != Tier2Route::Jev)
+        .count();
+    let true_jev = committed.len() - false_jev;
+    println!(
+        "\nAt the current {DEFAULT_THRESHOLD:.2} threshold: Jev precision={:.3} ({true_jev}/{}), Jev coverage={:.3} ({true_jev}/{jev_total}), false Jev commits={false_jev}",
+        if committed.is_empty() {
+            0.0
+        } else {
+            true_jev as f32 / committed.len() as f32
+        },
+        committed.len(),
+        true_jev as f32 / jev_total as f32,
+    );
+
+    for result in scored.iter().filter(|result| {
+        commits_jev(result, DEFAULT_THRESHOLD) && result.case.label != Tier2Route::Jev
+    }) {
+        println!(
+            "[FALSE JEV] line={} score={:.4} prompt={:?}",
+            result.case.line, result.score, result.case.prompt
+        );
+    }
+    for result in scored.iter().filter(|result| {
+        result.case.label == Tier2Route::Jev && !commits_jev(result, DEFAULT_THRESHOLD)
+    }) {
+        println!(
+            "[DEFERRED JEV] line={} score={:.4} prompt={:?}",
+            result.case.line, result.score, result.case.prompt
+        );
+    }
+
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn scored_case(label: Tier2Route, guess: Tier2Route, score: f32) -> ScoredCase {
+        ScoredCase {
+            case: Case {
+                line: 1,
+                label,
+                prompt: "test prompt".to_string(),
+            },
+            guess,
+            score,
+        }
+    }
+
+    #[test]
+    fn jev_commit_includes_threshold_boundary() {
+        let result = scored_case(Tier2Route::Jev, Tier2Route::Jev, DEFAULT_THRESHOLD);
+        assert!(commits_jev(&result, DEFAULT_THRESHOLD));
+    }
+
+    #[test]
+    fn llm_guess_never_commits_to_jev() {
+        let result = scored_case(Tier2Route::Jev, Tier2Route::LLM, 1.0);
+        assert!(!commits_jev(&result, DEFAULT_THRESHOLD));
+    }
+}
