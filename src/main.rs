@@ -75,6 +75,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 3. Register BOTH layers together in the Subscriber Pipeline
     tracing_subscriber::registry()
         .with(filter)
+        .with(tracing_subscriber::fmt::layer().with_target(false).compact())
         .with(otel_trace_layer) // Handles spans -> Tempo
         .with(loki_layer) // Handles events -> Loki
         .init();

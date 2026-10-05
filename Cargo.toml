@@ -36,3 +36,6 @@ prost-build = "0.13"
 
 [dev-dependencies]
 proptest = "1.4"
+
+[profile.dev.package.sha2]
+opt-level = 3
