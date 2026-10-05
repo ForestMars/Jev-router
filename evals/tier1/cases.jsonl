@@ -1,0 +1,13 @@
+{"id": "smoke_2plus2", "prompt": "What is 2+2?", "label": "jev_capable"}
+{"id": "jev_convert", "prompt": "convert 12 feet to meters", "label": "jev_capable"}
+{"id": "jev_weather", "prompt": "weather in Madrid tomorrow", "label": "jev_capable"}
+{"id": "jev_percent", "prompt": "what is 18% of 450", "label": "jev_capable"}
+{"id": "jev_howmany", "prompt": "how many cups in a quart", "label": "jev_capable"}
+{"id": "jev_sqrt", "prompt": "square root of 81", "label": "jev_capable"}
+{"id": "llm_haiku", "prompt": "Write a haiku about the sea.", "label": "needs_llm"}
+{"id": "llm_dns", "prompt": "Explain how DNS resolution works", "label": "needs_llm"}
+{"id": "llm_startups", "prompt": "Why do startups fail?", "label": "needs_llm"}
+{"id": "llm_memo", "prompt": "Summarize the key points of this memo", "label": "needs_llm"}
+{"id": "llm_convert_list", "prompt": "convert this paragraph into a bulleted list", "label": "needs_llm"}
+{"id": "llm_weather_pack", "prompt": "What's the weather like in Paris in spring, and what should I pack?", "label": "needs_llm"}
+{"id": "llm_compare", "prompt": "Compare Rust and Go for a backend service", "label": "needs_llm"}
