@@ -141,41 +141,36 @@ pub async fn route(
     // ---- Tier 2: FastText, in-process ----
     info!("[req {req}] TRY tier=2 (fasttext) prompt={prompt:?}");
     let t = Instant::now();
-    let mut tier2_record = None;
-    let mut tier3_record = None;
-    match t2.evaluate(prompt) {
-        
+    let tier2_record = match t2.evaluate(prompt) {
         Tier2Outcome::Resolved { route, confidence, calibrated_score, raw_probabilities } => {
-            tier2_record = Some(Tier2Record { raw_probabilities });
             info!("[req {req}] SCORE  tier=2 raw={confidence:.3} calibrated={calibrated_score:.3}");
             let backend = match route {
                 Tier2Route::Jev => Backend::Jev,
                 Tier2Route::LLM => Backend::Llm,
             };
             let decision = resolved(req, 2, "fasttext", backend, Some(calibrated_score), t.elapsed(), start.elapsed());
-            return finish_route(decision, prompt, start, &timestamp, hashes, tier1_record, tier2_record, None);
+            return finish_route(decision, prompt, start, &timestamp, hashes, tier1_record, Some(Tier2Record { raw_probabilities }), None);
         }
 
         Tier2Outcome::PassThrough { top_guess, score, reason, raw_probabilities } => {
-            tier2_record = Some(Tier2Record { raw_probabilities });
             escalate(
                 req, 2, 3, reason,
                 format!("top_guess={top_guess:?} score={score:.3}"),
                 t.elapsed(),
             );
+            Some(Tier2Record { raw_probabilities })
         }
-    }
+    };
 
     // ---- Tier 3: Harrier sidecar over gRPC ----
     let left = budget.saturating_sub(start.elapsed());
     info!("[req {req}] TRY       tier=3 (harrier)  budget_left={left:?}");
     let t = Instant::now();
     let tier3_result = t3.evaluate(prompt, left).await;
-    let tier3_score = match &tier3_result {
-        Tier3Outcome::Resolved { confidence, .. } => *confidence,
-        Tier3Outcome::PassThrough { score, .. } => *score,
+    let tier3_record = match &tier3_result {
+        Tier3Outcome::Resolved { confidence, .. } => Some(Tier3Record { score: *confidence }),
+        Tier3Outcome::PassThrough { score, .. } => Some(Tier3Record { score: *score }),
     };
-    tier3_record = Some(Tier3Record { score: tier3_score });
     match tier3_result {
         Tier3Outcome::Resolved { route, confidence, model_id } => {
         let backend = match route {

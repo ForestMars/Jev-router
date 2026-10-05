@@ -1,10 +1,22 @@
-#[path = "telemetry/mod.rs"]
-mod logging;
-
-pub use logging::{init, next_req_id};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use tracing_subscriber::EnvFilter;
+
+static REQ_COUNTER: AtomicU64 = AtomicU64::new(1);
+
+pub fn init() {
+    tracing_subscriber::fmt()
+        .with_env_filter(EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")))
+        .with_target(false)
+        .compact()
+        .init();
+}
+
+pub fn next_req_id() -> u64 {
+    REQ_COUNTER.fetch_add(1, Ordering::Relaxed)
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RouteRecord {
