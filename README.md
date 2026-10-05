@@ -317,6 +317,12 @@ The `logging` module provides low-overhead tracing. For every request the router
 
 Tracking **resolved-at-tier distribution over time** is the most important signal. A shift of traffic toward tiers 4 and 5 means thresholds, models, or the input distribution have drifted, and both cost and tail latency will rise.
 
+### Request Capture
+
+Each completed route is sent through a Tokio channel to a background writer, which appends one JSON object per line to `logs/routing_capture.jsonl`. The log directory is created at startup. The record includes a UUID v4 request ID, the request-start UTC timestamp, the raw prompt, SHA-256 hashes of the Tier 1 TOML and Tier 2 model files, the outcomes from tiers that ran, and the final backend, tier, and latency in microseconds. Tier 2 records its raw probability vector; Tier 3 records its score. The sampling probability currently defaults to `1.0`.
+
+The raw prompt is stored verbatim and may contain sensitive data. Restrict access to the capture file and define appropriate retention and cleanup; the writer appends indefinitely and does not rotate the file.
+
 ### Adjusting the Log Level
 
 Log verbosity is controlled with the `RUST_LOG` environment variable. **The default level is `trace`**, which is extremely verbose and includes frame-level output from the `h2` and `hyper` crates.
