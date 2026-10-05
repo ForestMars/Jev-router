@@ -262,6 +262,12 @@ impl Tier1Engine {
                 reason: "LLM directive in imperative zone with zero Jev matches".into(),
                 decided: true,
             }
+        } else if llm_strong_hits >= 1 && (jev_strong_hits > 0 || jev_mod_hits > 0) {
+            Tier1Result {
+                confidence: 0.5,
+                reason: "conflicting strong routing signals".into(),
+                decided: false,
+            }
         } else if is_binary_question {
             Tier1Result {
                 confidence: 0.9,
@@ -375,6 +381,23 @@ mod tests {
         let res = engine.classify("Is this working?");
         assert!(res.decided);
         assert_eq!(res.confidence, 0.9);
+    }
+
+    #[test]
+    fn conflicting_generative_and_jev_cues_defer() {
+        let config = Tier1Automaton::from_toml_file("config/tier1.toml").unwrap();
+        let engine = Tier1Engine::new(config).unwrap();
+
+        for prompt in [
+            "convert this paragraph into a bulleted list",
+            "What's the weather like in Paris in spring, and what should I pack?",
+        ] {
+            let result = engine.classify(prompt);
+            assert!(
+                !result.decided || result.confidence <= AMBIGUITY_UPPER_BOUND,
+                "Tier 1 incorrectly committed to Jev for {prompt:?}: {result:?}"
+            );
+        }
     }
 
     proptest! {

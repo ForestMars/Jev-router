@@ -270,7 +270,12 @@ After training, recalibrate `tier2.confidence_threshold` against a held-out set.
 
 ```bash
 cargo test --all-targets
+cargo run --example eval_tier1
 ```
+
+The Tier 1 eval reads `evals/tier1/cases.jsonl` and reports Jev precision, coverage,
+LLM-verdict precision, and deferred cases. Review false Jev commits before changing
+the Tier 1 thresholds or pattern set.
 
 To see tier-level output while debugging:
 
@@ -325,9 +330,9 @@ The raw prompt is stored verbatim and may contain sensitive data. Restrict acces
 
 ### Adjusting the Log Level
 
-Log verbosity is controlled with the `RUST_LOG` environment variable. **The default level is `trace`**, which is extremely verbose and includes frame-level output from the `h2` and `hyper` crates.
+Log verbosity is controlled with the `RUST_LOG` environment variable. The default level is `info`. Invalid `RUST_LOG` values cause startup to fail with a configuration error.
 
-Set `RUST_LOG=info` to quiet it down:
+Set `RUST_LOG=debug` for more detail:
 
 ```bash
 RUST_LOG=info cargo run --release
@@ -340,7 +345,7 @@ Common settings:
 | `RUST_LOG=info` | Recommended for normal operation and production |
 | `RUST_LOG=debug` | Router decision detail without frame-level transport output |
 | `RUST_LOG=warn` | Warnings and errors only |
-| `RUST_LOG=trace` | Everything (the default). Use only for short debugging sessions |
+| `RUST_LOG=trace` | Everything, including frame-level transport output. Use only for short debugging sessions |
 | `RUST_LOG=trace,h2=warn,hyper=warn` | Full trace output for the router, with `h2` and `hyper` silenced |
 
 Trace-level logging adds overhead and can distort the latency figures in this document. Benchmark and deploy with `info` or higher.

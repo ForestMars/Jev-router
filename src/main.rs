@@ -1,7 +1,7 @@
 // src/main.rs
 
-mod telemetry;
 mod router;
+mod telemetry;
 
 use std::time::Duration;
 
@@ -19,6 +19,7 @@ use tokio::io::AsyncWriteExt;
 
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
+use tracing_subscriber::EnvFilter;
 use url::Url;
 
 fn sha256_file(path: &str) -> Result<String, std::io::Error> {
@@ -54,51 +55,40 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (loki_layer, loki_task) = tracing_loki::builder()
         .label("service", "cascade-router")?
         .build_url(Url::parse("http://localhost:3100")?)?;
-    
-    tracing::info!("Cascade Router initialized successfully");
-    tokio::spawn(loki_task);
+
+    let filter = match std::env::var("RUST_LOG") {
+        Ok(filter) => EnvFilter::try_new(filter)?,
+        Err(std::env::VarError::NotPresent) => EnvFilter::new("info"),
+        Err(error) => return Err(error.into()),
+    };
 
     // 3. Register BOTH layers together in the Subscriber Pipeline
     tracing_subscriber::registry()
+        .with(filter)
         .with(otel_trace_layer) // Handles spans -> Tempo
-        .with(loki_layer)  // Handles events -> Loki
+        .with(loki_layer) // Handles events -> Loki
         .init();
+
+    tokio::spawn(loki_task);
+    tracing::info!("Cascade Router initialized successfully");
 
     let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<telemetry::RouteRecord>();
     let capture_task = tokio::spawn(async move {
-        if let Err(error) = tokio::fs::create_dir_all("logs").await {
-            tracing::error!("failed to create capture log directory: {error}");
-            return;
-        }
+        tokio::fs::create_dir_all("logs").await?;
 
-        let mut file = match OpenOptions::new()
+        let mut file = OpenOptions::new()
             .create(true)
             .append(true)
             .open("logs/routing_capture.jsonl")
-            .await
-        {
-            Ok(file) => file,
-            Err(error) => {
-                tracing::error!("failed to open routing capture file: {error}");
-                return;
-            }
-        };
+            .await?;
 
         while let Some(record) = rx.recv().await {
-            match serde_json::to_string(&record) {
-                Ok(json) => {
-                    if let Err(error) = file.write_all(format!("{json}\n").as_bytes()).await {
-                        tracing::error!("failed to write routing capture record: {error}");
-                        break;
-                    }
-                }
-                Err(error) => tracing::error!("failed to serialize routing capture record: {error}"),
-            }
+            let json = serde_json::to_string(&record)?;
+            file.write_all(format!("{json}\n").as_bytes()).await?;
         }
 
-        if let Err(error) = file.flush().await {
-            tracing::error!("failed to flush routing capture file: {error}");
-        }
+        file.flush().await?;
+        Ok::<(), Box<dyn std::error::Error + Send + Sync>>(())
     });
 
     // Placeholder thresholds and paths: use your tuned values.
@@ -135,11 +125,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             &hashes,
         )
         .await;
-        if tx.send(record).is_err() {
-            tracing::error!("routing capture writer has stopped");
-        }
+        tx.send(record).map_err(|error| {
+            std::io::Error::new(std::io::ErrorKind::BrokenPipe, error.to_string())
+        })?;
     }
     drop(tx);
-    capture_task.await?;
+    capture_task
+        .await?
+        .map_err(|error| std::io::Error::other(error.to_string()))?;
     Ok(())
 }
