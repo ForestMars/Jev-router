@@ -8,10 +8,9 @@
 #[path = "../src/router/tier2_runner.rs"]
 mod tier2_runner;
 
+use std::collections::HashMap;
 use std::fs;
-use tier2_runner::{
-    Tier2Outcome, Tier2Route, Tier2Runner, DEFAULT_CONFIDENCE_THRESHOLD,
-};
+use tier2_runner::{Tier2Outcome, Tier2Route, Tier2Runner, DEFAULT_CONFIDENCE_THRESHOLD};
 
 struct Case {
     line: usize,
@@ -88,11 +87,61 @@ fn commits_jev(case: &ScoredCase, threshold: f32) -> bool {
     case.guess == Tier2Route::Jev && case.score >= threshold
 }
 
+fn validate_independent_cases(evaluation: &[Case], training: &[Case]) -> Result<(), String> {
+    let training_lines: HashMap<_, _> = training
+        .iter()
+        .map(|case| (Tier2Runner::normalize_input(&case.prompt), case.line))
+        .collect();
+    let overlaps: Vec<_> = evaluation
+        .iter()
+        .filter_map(|case| {
+            training_lines
+                .get(&Tier2Runner::normalize_input(&case.prompt))
+                .map(|training_line| (case.line, *training_line))
+        })
+        .collect();
+
+    if overlaps.is_empty() {
+        Ok(())
+    } else {
+        let examples = overlaps
+            .iter()
+            .take(5)
+            .map(|(evaluation_line, training_line)| {
+                format!("evaluation line {evaluation_line} matches training line {training_line}")
+            })
+            .collect::<Vec<_>>()
+            .join("; ");
+        Err(format!(
+            "evaluation data overlaps training data in {} prompt(s): {examples}",
+            overlaps.len()
+        ))
+    }
+}
+
+fn wilson_interval(successes: usize, trials: usize) -> Option<(f64, f64)> {
+    if trials == 0 {
+        return None;
+    }
+
+    let z = 1.96;
+    let n = trials as f64;
+    let proportion = successes as f64 / n;
+    let denominator = 1.0 + z * z / n;
+    let center = (proportion + z * z / (2.0 * n)) / denominator;
+    let half_width =
+        z * (proportion * (1.0 - proportion) / n + z * z / (4.0 * n * n)).sqrt() / denominator;
+    Some((center - half_width, center + half_width))
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = std::env::args().collect();
     let model_path = argument(&args, "--model", "models/tier2.bin");
     let cases_path = argument(&args, "--cases", "calibration/ft_valid.txt");
+    let training_path = argument(&args, "--training-cases", "calibration/ft_train.txt");
     let cases = load_cases(&cases_path)?;
+    let training_cases = load_cases(&training_path)?;
+    validate_independent_cases(&cases, &training_cases)?;
     let runner = Tier2Runner::new(&model_path, DEFAULT_CONFIDENCE_THRESHOLD)?;
     let scored: Vec<_> = cases
         .into_iter()
@@ -113,12 +162,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("model: {model_path}");
     println!(
-        "held-out cases: {cases_path} ({} rows; Jev={jev_total}, LLM={llm_total})",
-        scored.len()
+        "evaluation cases: {cases_path} ({} rows; Jev={jev_total}, LLM={llm_total})",
+        scored.len(),
     );
+    println!("checked for prompt overlap with training cases: {training_path}");
     println!(
-        "\n{:<10} {:>10} {:>12} {:>12} {:>12}",
-        "threshold", "Jev commits", "Jev precision", "Jev coverage", "false Jev"
+        "\n{:<10} {:>10} {:>29} {:>12} {:>12}",
+        "threshold", "Jev commits", "Jev precision (95% Wilson CI)", "Jev coverage", "false Jev"
     );
 
     for step in 0..=20 {
@@ -137,14 +187,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         } else {
             correct as f32 / committed as f32
         };
+        let precision_interval = wilson_interval(correct, committed)
+            .map(|(lower, upper)| format!("{precision:.3} [{lower:.3}, {upper:.3}]"))
+            .unwrap_or_else(|| "n/a".to_string());
         let coverage = correct as f32 / jev_total as f32;
 
         println!(
-            "{threshold:<10.2} {committed:>5}/{:<5} {:>11.3} {:>11.3} {:>12}",
+            "{threshold:<10.2} {committed:>5}/{:<5} {precision_interval:>29} {coverage:>11.3} {false_jev:>12}",
             scored.len(),
-            precision,
-            coverage,
-            false_jev
         );
     }
 
@@ -157,8 +207,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .filter(|result| result.case.label != Tier2Route::Jev)
         .count();
     let true_jev = committed.len() - false_jev;
+    let precision_interval = wilson_interval(true_jev, committed.len())
+        .map(|(lower, upper)| format!("[{lower:.3}, {upper:.3}]"))
+        .unwrap_or_else(|| "n/a (no Jev commits)".to_string());
     println!(
-        "\nAt the current {DEFAULT_CONFIDENCE_THRESHOLD:.2} threshold: Jev precision={:.3} ({true_jev}/{}), Jev coverage={:.3} ({true_jev}/{jev_total}), false Jev commits={false_jev}",
+        "\nAt the current {DEFAULT_CONFIDENCE_THRESHOLD:.2} threshold: Jev precision={:.3} {precision_interval} ({true_jev}/{}), Jev coverage={:.3} ({true_jev}/{jev_total}), false Jev commits={false_jev}",
         if committed.is_empty() {
             0.0
         } else {
@@ -169,8 +222,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     for result in scored.iter().filter(|result| {
-        commits_jev(result, DEFAULT_CONFIDENCE_THRESHOLD)
-            && result.case.label != Tier2Route::Jev
+        commits_jev(result, DEFAULT_CONFIDENCE_THRESHOLD) && result.case.label != Tier2Route::Jev
     }) {
         println!(
             "[FALSE JEV] line={} score={:.4} prompt={:?}",
@@ -178,8 +230,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
     }
     for result in scored.iter().filter(|result| {
-        result.case.label == Tier2Route::Jev
-            && !commits_jev(result, DEFAULT_CONFIDENCE_THRESHOLD)
+        result.case.label == Tier2Route::Jev && !commits_jev(result, DEFAULT_CONFIDENCE_THRESHOLD)
     }) {
         println!(
             "[DEFERRED JEV] line={} score={:.4} prompt={:?}",
@@ -220,5 +271,50 @@ mod tests {
     fn llm_guess_never_commits_to_jev() {
         let result = scored_case(Tier2Route::Jev, Tier2Route::LLM, 1.0);
         assert!(!commits_jev(&result, DEFAULT_CONFIDENCE_THRESHOLD));
+    }
+
+    #[test]
+    fn independent_case_check_rejects_normalized_prompt_overlap() {
+        let evaluation = [Case {
+            line: 3,
+            label: Tier2Route::Jev,
+            prompt: "  WHAT is 2+2? ".to_string(),
+        }];
+        let training = [Case {
+            line: 8,
+            label: Tier2Route::Jev,
+            prompt: "what is 2+2?".to_string(),
+        }];
+
+        let error = validate_independent_cases(&evaluation, &training).unwrap_err();
+        assert!(error.contains("evaluation line 3 matches training line 8"));
+    }
+
+    #[test]
+    fn independent_case_check_accepts_disjoint_prompts() {
+        let evaluation = [Case {
+            line: 3,
+            label: Tier2Route::Jev,
+            prompt: "what is 2+2?".to_string(),
+        }];
+        let training = [Case {
+            line: 8,
+            label: Tier2Route::Jev,
+            prompt: "what is 3+3?".to_string(),
+        }];
+
+        assert!(validate_independent_cases(&evaluation, &training).is_ok());
+    }
+
+    #[test]
+    fn wilson_interval_shows_uncertainty_for_perfect_small_sample() {
+        let (lower, upper) = wilson_interval(12, 12).unwrap();
+        assert!(lower < 1.0);
+        assert_eq!(upper, 1.0);
+    }
+
+    #[test]
+    fn wilson_interval_is_unavailable_without_commits() {
+        assert_eq!(wilson_interval(0, 0), None);
     }
 }

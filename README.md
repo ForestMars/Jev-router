@@ -280,8 +280,12 @@ the Tier 1 thresholds or pattern set.
 
 The Tier 2 eval reads `calibration/ft_valid.txt`, the held-out split produced from
 the labeled calibration exemplars, and sweeps Jev precision and coverage across
-confidence thresholds. It reports false Jev commits at the current `0.95` threshold.
-Use a separate representative validation set before changing the production threshold.
+confidence thresholds. It checks for normalized prompt overlap with
+`calibration/ft_train.txt`, reports Wilson confidence intervals for precision, and
+lists false Jev commits at the current `0.95` threshold. To evaluate an independent
+labeled set, pass it with `--cases` and provide its training source with
+`--training-cases`. Use a separate representative validation set before changing the
+production threshold.
 
 To see tier-level output while debugging:
 
