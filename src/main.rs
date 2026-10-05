@@ -72,7 +72,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tokio::spawn(loki_task);
     tracing::info!("Cascade Router initialized successfully");
 
-    let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<telemetry::RouteRecord>();
+    let (tx, mut rx) = tokio::sync::mpsc::channel::<telemetry::RouteRecord>(128);
     let capture_task = tokio::spawn(async move {
         tokio::fs::create_dir_all("logs").await?;
 
@@ -81,10 +81,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .append(true)
             .open("logs/routing_capture.jsonl")
             .await?;
+        let mut flush_interval = tokio::time::interval(Duration::from_secs(1));
 
-        while let Some(record) = rx.recv().await {
-            let json = serde_json::to_string(&record)?;
-            file.write_all(format!("{json}\n").as_bytes()).await?;
+        loop {
+            tokio::select! {
+                recv = rx.recv() => {
+                    let Some(record) = recv else {
+                        break;
+                    };
+                    let json = serde_json::to_string(&record)?;
+                    file.write_all(format!("{json}\n").as_bytes()).await?;
+                }
+                _ = flush_interval.tick() => {
+                    file.flush().await?;
+                }
+            }
         }
 
         file.flush().await?;
@@ -109,6 +120,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Duration::from_millis(500),
     )?;
 
+    let mut dropped_records = 0usize;
     for prompt in [
         "What is 2+2?",
         "Write a 500-word essay on the history of Rome",
@@ -125,9 +137,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             &hashes,
         )
         .await;
-        tx.send(record).map_err(|error| {
-            std::io::Error::new(std::io::ErrorKind::BrokenPipe, error.to_string())
-        })?;
+        match tx.try_send(record) {
+            Ok(()) => {}
+            Err(tokio::sync::mpsc::error::TrySendError::Full(_)) => {
+                dropped_records += 1;
+                tracing::warn!(dropped_records, "capture queue full; dropping route record");
+            }
+            Err(tokio::sync::mpsc::error::TrySendError::Closed(_)) => {
+                tracing::warn!("capture queue closed; dropping route record");
+            }
+        }
     }
     drop(tx);
     capture_task

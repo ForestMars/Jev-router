@@ -21,13 +21,17 @@ pub enum Tier2Outcome {
     Resolved {
         route: Tier2Route,
         confidence: f32,
-        calibrated_score: f32, // Added per ticket spec
+        calibrated_score: f32,
+        p_jev: f32,
+        p_llm: f32,
         raw_probabilities: Vec<f32>,
     },
     PassThrough {
         top_guess: Tier2Route,
         score: f32,
         reason: &'static str,
+        p_jev: f32,
+        p_llm: f32,
         raw_probabilities: Vec<f32>,
     },
 }
@@ -113,6 +117,8 @@ impl Tier2Runner {
                 top_guess: Tier2Route::LLM,
                 score: 0.0,
                 reason: "empty_input",
+                p_jev: 0.0,
+                p_llm: 0.0,
                 raw_probabilities: Vec::new(),
             };
         }
@@ -123,6 +129,8 @@ impl Tier2Runner {
                 top_guess: Tier2Route::LLM,
                 score: 0.0,
                 reason: "no_predictions",
+                p_jev: 0.0,
+                p_llm: 0.0,
                 raw_probabilities: Vec::new(),
             };
         }
@@ -159,6 +167,8 @@ impl Tier2Runner {
                 route,
                 confidence: top_prob,
                 calibrated_score,
+                p_jev,
+                p_llm,
                 raw_probabilities,
             }
         } else {
@@ -170,6 +180,8 @@ impl Tier2Runner {
                 } else {
                     "not_jev"
                 },
+                p_jev,
+                p_llm,
                 raw_probabilities,
             }
         }

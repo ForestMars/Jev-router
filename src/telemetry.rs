@@ -44,12 +44,16 @@ pub struct Tier1Outcome {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Tier2Outcome {
+    pub p_jev: f32,
+    pub p_llm: f32,
     pub raw_probabilities: Vec<f32>,
+    pub reason: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Tier3Outcome {
     pub score: f32,
+    pub reason: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
