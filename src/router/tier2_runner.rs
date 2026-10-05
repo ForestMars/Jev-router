@@ -8,6 +8,7 @@ use tracing::{info, instrument};
 
 /// Labels the model must carry, as they appear after stripping `__label__`.
 const REQUIRED_LABELS: [&str; 2] = ["jev", "llm"];
+pub const DEFAULT_CONFIDENCE_THRESHOLD: f32 = 0.95;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Tier2Route {

@@ -7,7 +7,7 @@ use std::time::Duration;
 
 use router::cascade;
 use router::tier1_runner::{Tier1Automaton, Tier1Engine};
-use router::tier2_runner::Tier2Runner;
+use router::tier2_runner::{Tier2Runner, DEFAULT_CONFIDENCE_THRESHOLD};
 use router::tier3_runner::Tier3Runner;
 
 use opentelemetry::trace::TracerProvider as _;
@@ -97,7 +97,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let t1 = Tier1Engine::new(Tier1Automaton::from_toml_file(&tier1_path)?)?;
 
     let model_path = std::env::var("FASTTEXT_MODEL").unwrap_or_else(|_| "models/tier2.bin".into());
-    let t2 = Tier2Runner::new(&model_path, 0.95)?;
+    let t2 = Tier2Runner::new(&model_path, DEFAULT_CONFIDENCE_THRESHOLD)?;
     let hashes = telemetry::Hashes {
         tier1_toml: sha256_file(&tier1_path)?,
         tier2_bin: sha256_file(&model_path)?,

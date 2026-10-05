@@ -9,9 +9,9 @@
 mod tier2_runner;
 
 use std::fs;
-use tier2_runner::{Tier2Outcome, Tier2Route, Tier2Runner};
-
-const DEFAULT_THRESHOLD: f32 = 0.95;
+use tier2_runner::{
+    Tier2Outcome, Tier2Route, Tier2Runner, DEFAULT_CONFIDENCE_THRESHOLD,
+};
 
 struct Case {
     line: usize,
@@ -93,7 +93,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let model_path = argument(&args, "--model", "models/tier2.bin");
     let cases_path = argument(&args, "--cases", "calibration/ft_valid.txt");
     let cases = load_cases(&cases_path)?;
-    let runner = Tier2Runner::new(&model_path, DEFAULT_THRESHOLD)?;
+    let runner = Tier2Runner::new(&model_path, DEFAULT_CONFIDENCE_THRESHOLD)?;
     let scored: Vec<_> = cases
         .into_iter()
         .map(|case| score_case(&runner, case))
@@ -150,7 +150,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let committed: Vec<_> = scored
         .iter()
-        .filter(|result| commits_jev(result, DEFAULT_THRESHOLD))
+        .filter(|result| commits_jev(result, DEFAULT_CONFIDENCE_THRESHOLD))
         .collect();
     let false_jev = committed
         .iter()
@@ -158,7 +158,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .count();
     let true_jev = committed.len() - false_jev;
     println!(
-        "\nAt the current {DEFAULT_THRESHOLD:.2} threshold: Jev precision={:.3} ({true_jev}/{}), Jev coverage={:.3} ({true_jev}/{jev_total}), false Jev commits={false_jev}",
+        "\nAt the current {DEFAULT_CONFIDENCE_THRESHOLD:.2} threshold: Jev precision={:.3} ({true_jev}/{}), Jev coverage={:.3} ({true_jev}/{jev_total}), false Jev commits={false_jev}",
         if committed.is_empty() {
             0.0
         } else {
@@ -169,7 +169,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     for result in scored.iter().filter(|result| {
-        commits_jev(result, DEFAULT_THRESHOLD) && result.case.label != Tier2Route::Jev
+        commits_jev(result, DEFAULT_CONFIDENCE_THRESHOLD)
+            && result.case.label != Tier2Route::Jev
     }) {
         println!(
             "[FALSE JEV] line={} score={:.4} prompt={:?}",
@@ -177,7 +178,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
     }
     for result in scored.iter().filter(|result| {
-        result.case.label == Tier2Route::Jev && !commits_jev(result, DEFAULT_THRESHOLD)
+        result.case.label == Tier2Route::Jev
+            && !commits_jev(result, DEFAULT_CONFIDENCE_THRESHOLD)
     }) {
         println!(
             "[DEFERRED JEV] line={} score={:.4} prompt={:?}",
@@ -206,13 +208,17 @@ mod tests {
 
     #[test]
     fn jev_commit_includes_threshold_boundary() {
-        let result = scored_case(Tier2Route::Jev, Tier2Route::Jev, DEFAULT_THRESHOLD);
-        assert!(commits_jev(&result, DEFAULT_THRESHOLD));
+        let result = scored_case(
+            Tier2Route::Jev,
+            Tier2Route::Jev,
+            DEFAULT_CONFIDENCE_THRESHOLD,
+        );
+        assert!(commits_jev(&result, DEFAULT_CONFIDENCE_THRESHOLD));
     }
 
     #[test]
     fn llm_guess_never_commits_to_jev() {
         let result = scored_case(Tier2Route::Jev, Tier2Route::LLM, 1.0);
-        assert!(!commits_jev(&result, DEFAULT_THRESHOLD));
+        assert!(!commits_jev(&result, DEFAULT_CONFIDENCE_THRESHOLD));
     }
 }
