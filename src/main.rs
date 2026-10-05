@@ -43,8 +43,6 @@ fn init_opentelemetry_tracer() -> Tracer {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    telemetry::init();
-
     let otel_tracer = init_opentelemetry_tracer();
 
     // 1. Layer for TRACES (Spans) -> Goes to Grafana Tempo

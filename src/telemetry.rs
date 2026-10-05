@@ -2,16 +2,13 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use tracing_subscriber::EnvFilter;
 
 static REQ_COUNTER: AtomicU64 = AtomicU64::new(1);
 
+#[allow(dead_code)]
 pub fn init() {
-    tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")))
-        .with_target(false)
-        .compact()
-        .init();
+    // The runtime configures and installs the global tracing subscriber in main().
+    // Keeping this as a no-op avoids duplicate global subscriber initialization.
 }
 
 pub fn next_req_id() -> u64 {
