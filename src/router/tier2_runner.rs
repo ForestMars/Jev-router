@@ -41,52 +41,6 @@ pub struct Tier2Runner {
     confidence_threshold: f32,
 }
 
-fn arithmetic_jev_fastpath(prompt: &str) -> Option<Tier2Outcome> {
-    let normalized = Tier2Runner::normalize_input(prompt);
-    if normalized.is_empty() {
-        return None;
-    }
-
-    let has_number = normalized.chars().any(|c| c.is_ascii_digit());
-    let has_operator = normalized.contains('+')
-        || normalized.contains('-')
-        || normalized.contains('*')
-        || normalized.contains('/')
-        || normalized.contains('%')
-        || normalized.contains("plus")
-        || normalized.contains("minus")
-        || normalized.contains("times")
-        || normalized.contains("multiplied")
-        || normalized.contains("divide")
-        || normalized.contains("subtract")
-        || normalized.contains("add")
-        || normalized.contains("calculate")
-        || normalized.contains("compute")
-        || normalized.contains("evaluate");
-    let has_arithmetic_context = normalized.contains("what is")
-        || normalized.contains("what's")
-        || normalized.contains("calculate")
-        || normalized.contains("compute")
-        || normalized.contains("solve")
-        || normalized.contains("evaluate")
-        || normalized.contains("equals")
-        || normalized.contains("= ")
-        || normalized.contains("?");
-
-    if has_number && has_operator && has_arithmetic_context {
-        Some(Tier2Outcome::Resolved {
-            route: Tier2Route::Jev,
-            confidence: 1.0,
-            calibrated_score: 1.0,
-            p_jev: 1.0,
-            p_llm: 0.0,
-            raw_probabilities: vec![1.0, 0.0],
-        })
-    } else {
-        None
-    }
-}
-
 /// Pure scoring step. Returns (route, top_prob, calibrated_score).
 ///
 /// calibrated_score is the margin between the two class probabilities, so it
@@ -157,10 +111,6 @@ impl Tier2Runner {
     pub fn evaluate(&self, prompt: &str) -> Tier2Outcome {
         // 1. Input Normalization pre-pass
         let normalized = Self::normalize_input(prompt);
-
-        if let Some(fastpath) = arithmetic_jev_fastpath(&normalized) {
-            return fastpath;
-        }
 
         if normalized.is_empty() {
             return Tier2Outcome::PassThrough {
@@ -286,20 +236,6 @@ mod tests {
             let (_, _, s_hi) = calibrate(hi, 1.0 - hi);
             prop_assert!(s_lo <= s_hi);
         }
-    }
-
-    #[test]
-    fn arithmetic_prompts_resolve_to_jev_without_model() {
-        let resolved = arithmetic_jev_fastpath("What is 2+2?");
-        assert!(matches!(
-            resolved,
-            Some(Tier2Outcome::Resolved {
-                route: Tier2Route::Jev,
-                confidence: 1.0,
-                calibrated_score: 1.0,
-                ..
-            })
-        ));
     }
 
     #[test]

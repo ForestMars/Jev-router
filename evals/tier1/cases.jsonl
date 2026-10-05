@@ -11,3 +11,7 @@
 {"id": "llm_convert_list", "prompt": "convert this paragraph into a bulleted list", "label": "needs_llm"}
 {"id": "llm_weather_pack", "prompt": "What's the weather like in Paris in spring, and what should I pack?", "label": "needs_llm"}
 {"id": "llm_compare", "prompt": "Compare Rust and Go for a backend service", "label": "needs_llm"}
+{"id": "llm_5step_plan", "prompt": "What is a good 5-step plan for learning Rust?", "label": "needs_llm"}
+{"id": "llm_401k", "prompt": "Is a 401(k) better than a Roth IRA if I'm 25 and get a 5% match?", "label": "needs_llm"}
+{"id": "llm_cover_letter", "prompt": "Write a 3-paragraph cover letter. Why does this role fit me?", "label": "needs_llm"}
+{"id": "llm_resume", "prompt": "Can you review my 2-page resume?", "label": "needs_llm"}
