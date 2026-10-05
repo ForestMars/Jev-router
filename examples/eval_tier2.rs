@@ -134,6 +134,19 @@ fn wilson_interval(successes: usize, trials: usize) -> Option<(f64, f64)> {
     Some((center - half_width, center + half_width))
 }
 
+fn threshold_candidates(scored: &[ScoredCase]) -> Vec<f32> {
+    let mut thresholds = vec![0.0, 1.0];
+    thresholds.extend(
+        scored
+            .iter()
+            .filter(|result| result.guess == Tier2Route::Jev)
+            .map(|result| result.score),
+    );
+    thresholds.sort_by(f32::total_cmp);
+    thresholds.dedup_by(|left, right| *left == *right);
+    thresholds
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = std::env::args().collect();
     let model_path = argument(&args, "--model", "models/tier2.bin");
@@ -171,8 +184,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "threshold", "Jev commits", "Jev precision (95% Wilson CI)", "Jev coverage", "false Jev"
     );
 
-    for step in 0..=20 {
-        let threshold = step as f32 * 0.05;
+    for threshold in threshold_candidates(&scored) {
         let committed = scored
             .iter()
             .filter(|result| commits_jev(result, threshold))
@@ -193,7 +205,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let coverage = correct as f32 / jev_total as f32;
 
         println!(
-            "{threshold:<10.2} {committed:>5}/{:<5} {precision_interval:>29} {coverage:>11.3} {false_jev:>12}",
+            "{threshold:<12.7} {committed:>5}/{:<5} {precision_interval:>29} {coverage:>11.3} {false_jev:>12}",
             scored.len(),
         );
     }
@@ -316,5 +328,17 @@ mod tests {
     #[test]
     fn wilson_interval_is_unavailable_without_commits() {
         assert_eq!(wilson_interval(0, 0), None);
+    }
+
+    #[test]
+    fn threshold_candidates_cover_distinct_jev_scores() {
+        let scored = [
+            scored_case(Tier2Route::Jev, Tier2Route::Jev, 0.73),
+            scored_case(Tier2Route::Jev, Tier2Route::Jev, 0.41),
+            scored_case(Tier2Route::Jev, Tier2Route::Jev, 0.73),
+            scored_case(Tier2Route::LLM, Tier2Route::LLM, 0.99),
+        ];
+
+        assert_eq!(threshold_candidates(&scored), vec![0.0, 0.41, 0.73, 1.0]);
     }
 }

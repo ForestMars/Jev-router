@@ -11,11 +11,12 @@ text field either "prompt" or "text"; the first one present in a record is used.
 Requires: pip install fasttext-wheel "numpy<2"
 """
 
+import argparse
 import glob
 import json
-import os
 import random
 from collections import Counter, defaultdict
+from pathlib import Path
 
 TEXT_FIELDS = ("prompt", "text")
 LABEL_FIELD = "label"
@@ -23,9 +24,9 @@ LABEL_MAP = {"jev_capable": "jev", "needs_llm": "llm"}  # Rust matches __label__
 VALID_FRACTION = 0.2
 SEED = 0
 
-TRAIN_PATH = "calibration/ft_train.txt"
-VALID_PATH = "calibration/ft_valid.txt"
-MODEL_PATH = "models/tier2.bin"
+TRAIN_PATH = Path("calibration/ft_train.txt")
+VALID_PATH = Path("calibration/ft_valid.txt")
+MODEL_PATH = Path("models/tier2.bin")
 EPOCH = 25
 LR = 0.5
 WORD_NGRAMS = 2
@@ -49,12 +50,28 @@ def extract_text(rec: dict) -> str:
     return ""
 
 
-def build_splits() -> None:
+def build_splits(
+    train_path: Path,
+    valid_path: Path,
+    holdout_path: Path | None = None,
+    holdout_source: Path | None = None,
+) -> None:
     by_label: dict[str, list[str]] = defaultdict(list)
+    holdout: list[str] = []
     skipped = Counter()
     per_file = Counter()
 
-    for path in sorted(glob.glob("calibration/exemplars*.jsonl")):
+    source_paths = [Path(path) for path in sorted(glob.glob("calibration/exemplars*.jsonl"))]
+    if holdout_source is not None:
+        holdout_source = holdout_source.resolve()
+        if holdout_source not in {path.resolve() for path in source_paths}:
+            raise ValueError(
+                f"holdout source is not among calibration exemplar files: {holdout_source}"
+            )
+        if holdout_path is None:
+            raise ValueError("holdout output path is required when a holdout source is selected")
+
+    for path in source_paths:
         with open(path, encoding="utf-8") as f:
             for line in f:
                 if not line.strip():
@@ -65,8 +82,14 @@ def build_splits() -> None:
                 if label is None or not text:
                     skipped[str(rec.get(LABEL_FIELD))] += 1
                     continue
-                by_label[label].append(text)
+                if holdout_source is not None and path.resolve() == holdout_source:
+                    holdout.append(f"__label__{label} {text}")
+                else:
+                    by_label[label].append(text)
                 per_file[path] += 1
+
+    if holdout_source is not None and not holdout:
+        raise ValueError(f"holdout source contains no usable labeled prompts: {holdout_source}")
 
     rng = random.Random(SEED)
     train, valid = [], []
@@ -80,38 +103,45 @@ def build_splits() -> None:
     rng.shuffle(train)
     rng.shuffle(valid)
 
-    with open(TRAIN_PATH, "w", encoding="utf-8") as f:
+    train_path.parent.mkdir(parents=True, exist_ok=True)
+    valid_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(train_path, "w", encoding="utf-8") as f:
         f.write("\n".join(train) + "\n")
-    with open(VALID_PATH, "w", encoding="utf-8") as f:
+    with open(valid_path, "w", encoding="utf-8") as f:
         f.write("\n".join(valid) + "\n")
 
     print(f"rows read per file: {dict(per_file)}")
-    print(f"wrote {len(train)} train / {len(valid)} valid")
+    print(f"wrote {len(train)} train / {len(valid)} validation to {train_path} and {valid_path}")
     print(f"train classes: {dict(Counter(r.split(' ', 1)[0] for r in train))}")
     print(f"valid classes: {dict(Counter(r.split(' ', 1)[0] for r in valid))}")
+    if holdout_source is not None and holdout_path is not None:
+        holdout_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(holdout_path, "w", encoding="utf-8") as f:
+            f.write("\n".join(holdout) + "\n")
+        print(f"wrote {len(holdout)} source-held-out rows to {holdout_path}")
     if skipped:
         print(f"skipped (unmapped label or empty text): {dict(skipped)}")
 
 
-def train_and_evaluate() -> None:
+def train_and_evaluate(train_path: Path, valid_path: Path, model_path: Path) -> None:
     try:
         import fasttext
     except ImportError:
         raise SystemExit('fasttext not installed: pip install fasttext-wheel "numpy<2"')
 
     model = fasttext.train_supervised(
-        input=TRAIN_PATH,
+        input=str(train_path),
         epoch=EPOCH,
         lr=LR,
         wordNgrams=WORD_NGRAMS,
         verbose=0,
     )
 
-    os.makedirs(os.path.dirname(MODEL_PATH), exist_ok=True)
-    model.save_model(MODEL_PATH)
-    print(f"saved {MODEL_PATH}, labels: {model.get_labels()}")
+    model_path.parent.mkdir(parents=True, exist_ok=True)
+    model.save_model(str(model_path))
+    print(f"saved {model_path}, labels: {model.get_labels()}")
 
-    n, precision, recall = model.test(VALID_PATH)
+    n, precision, recall = model.test(str(valid_path))
     print(f"validation: n={n} precision@1={precision:.3f} recall@1={recall:.3f}")
 
     for prompt in PROBES:
@@ -121,8 +151,35 @@ def train_and_evaluate() -> None:
 
 
 def main() -> None:
-    build_splits()
-    train_and_evaluate()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--holdout-source",
+        type=Path,
+        help="exclude this exemplar file from training and write it as a separate evaluation set",
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        help="write generated datasets and model here; required for source-held-out runs",
+    )
+    args = parser.parse_args()
+
+    if args.holdout_source is not None and args.output_dir is None:
+        parser.error(
+            "--output-dir is required with --holdout-source to avoid overwriting normal artifacts"
+        )
+
+    if args.output_dir is None:
+        train_path, valid_path, model_path = TRAIN_PATH, VALID_PATH, MODEL_PATH
+        holdout_path = None
+    else:
+        train_path = args.output_dir / "ft_train.txt"
+        valid_path = args.output_dir / "ft_valid.txt"
+        model_path = args.output_dir / "tier2.bin"
+        holdout_path = args.output_dir / "ft_holdout.txt" if args.holdout_source else None
+
+    build_splits(train_path, valid_path, holdout_path, args.holdout_source)
+    train_and_evaluate(train_path, valid_path, model_path)
 
 
 if __name__ == "__main__":

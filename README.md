@@ -281,11 +281,27 @@ the Tier 1 thresholds or pattern set.
 The Tier 2 eval reads `calibration/ft_valid.txt`, the held-out split produced from
 the labeled calibration exemplars, and sweeps Jev precision and coverage across
 confidence thresholds. It checks for normalized prompt overlap with
-`calibration/ft_train.txt`, reports Wilson confidence intervals for precision, and
-lists false Jev commits at the current `0.95` threshold. To evaluate an independent
-labeled set, pass it with `--cases` and provide its training source with
-`--training-cases`. Use a separate representative validation set before changing the
-production threshold.
+`calibration/ft_train.txt`, reports Wilson confidence intervals for precision,
+evaluates each distinct Jev score boundary as well as `0` and `1`, and lists false
+Jev commits at the current `0.95` threshold. To evaluate an independent labeled set,
+pass it with `--cases` and provide its training source with `--training-cases`. Use a
+separate representative validation set before changing the production threshold.
+
+For a source-held-out stress test, train without one exemplar file and write all
+generated artifacts outside the repository:
+
+```bash
+python3 calibration/make_fasttext_train.py \
+  --holdout-source calibration/exemplars_ac-ct.jsonl \
+  --output-dir /tmp/tier2-source-holdout
+cargo run --example eval_tier2 -- \
+  --model /tmp/tier2-source-holdout/tier2.bin \
+  --cases /tmp/tier2-source-holdout/ft_holdout.txt \
+  --training-cases /tmp/tier2-source-holdout/ft_train.txt
+```
+
+This checks cross-source generalization, not independent production performance;
+the held-out prompts come from the same labeled exemplar collection.
 
 To see tier-level output while debugging:
 
