@@ -9,15 +9,12 @@ imperative_zone_bytes = 48
 # Each strong hit adds 0.35 to a 0.5 baseline, so one hit clears the 0.78 jev bar.
 [jev_strong]
 exact = [
-    "convert ",
-    "weather in ",
-    "weather like",
     "time in ",
     "square root of",
     "factorial",
     "% of ",
 ]
-fuzzy = ["convert", "weather", "factorial"]
+fuzzy = ["factorial"]
 
 # Each moderate hit adds 0.15.
 [jev_moderate]

@@ -443,8 +443,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "known false Jev, tracked in evals/tier1/cases.jsonl"]
-    fn conflicting_generative_and_jev_cues_defer() {
+    fn generative_prompts_defer_from_tier1() {
         let config = Tier1Automaton::from_toml_file("config/tier1.toml").unwrap();
         let engine = Tier1Engine::new(config).unwrap();
 
