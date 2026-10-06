@@ -8,20 +8,10 @@ An in-process, high-throughput request routing engine written in Rust. It classi
 
 The engine is a **five-tier deterministic fallback cascade**. Each tier either resolves the request with sufficient confidence or passes it to the next, more expensive tier. Cheap tiers absorb most traffic, so the expensive tiers only see the ambiguous remainder.
 
-> **Most LLM requests do not need a generative model.** Route the ones that don't to a much cheaper decision engine, and escalate only when necessary.
-
-> [!TIP]
-> Most LLM requests do not need a generative model. Route the ones that don't to a much cheaper decision engine, and escalate only when necessary.
-
-<table width="100%">
-<tr>
-<td>
-
- Most LLM requests do not need a generative model. Route the ones that don't to a much cheaper decision engine, and escalate only when necessary.
-
-</td>
-</tr>
-</table>
+<table width="100%"><tr><td>
+ **Most LLM requests do not need a generative model. Route the ones that don't 
+ to a much cheaper decision engine, and escalate only when necessary.**
+</td></tr></table>
 
 
 ---
