@@ -97,7 +97,7 @@ Disabled tiers are skipped without cost. Tiers are always evaluated in numeric o
 
 ### Tier 5: Generative LLM Fallback
 - **Open-Ended Generation:** Tier 5 is the terminal generative pathway for requests that survive every discriminative tier or inherently require open-ended language generation, synthesis, or reasoning.
-- **Guaranteed Termination:** Tier 5 always produces the final routing outcome, making the cascade total even when every cheaper evaluator abstains or fails.
+- **Guaranteed Termination:** Tier 5 always produces the final routing outcome, making the cascade total even when every cheaper evaluator abstains or fails, or are not unavailable.
 - **Expensive by Design:** The generative model is deliberately reserved for the residual traffic that earlier tiers cannot confidently establish as JEV-capable, minimizing unnecessary token consumption while preserving full LLM capability for genuinely generative requests.
 ---
 
