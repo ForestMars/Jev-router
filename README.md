@@ -67,10 +67,9 @@ Disabled tiers are skipped without cost. Tiers are always evaluated in numeric o
 
 ### Tier 1: Static Rules and Regex Guardrails
 
-- **Mechanism:** payload byte-length bounds, hash-map lookup of exact static signatures, and a single-pass `regex::RegexSet` evaluation.
-- **Matching model:** the `regex` crate guarantees linear-time matching in input length. There is no backtracking, so adversarial patterns cannot cause latency blowups.
-- **Allocation:** none per request. The payload is handled as an immutable `&str`.
-- **Typical use:** health pings, known canned prompts, oversize payload rejection, hard policy rules.
+- **Low-Latency Deterministic Pipeline:** Replaces conventional regex guardrails with Aho-Corasick automata and Damerau-Levenshtein fuzzy matching, scanning the immutable payload through exact positional, fuzzy-token, imperative-zone, prefix, and polarity checks.
+- **Ambiguity as a First-Class Output:** The policy explicitly models competing intent. When strong LLM generative cues conflict with Jev discriminative signals, Tier 1 enters an explicit conflict state and defers to Tier 2 rather than forcing a premature guess.
+- **Deterministic Query Fast Paths:** Recognizes requests whose answers can be resolved through closed-form computation or other deterministic operations, bypassing semantic model inference entirely. Arithmetic is the simplest case; the same layer is designed to absorb quantitative and other structured queries as additional fast paths.
 
 ### Tier 2: FastText Subword Classifier
 
