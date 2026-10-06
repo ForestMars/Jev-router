@@ -65,44 +65,40 @@ Disabled tiers are skipped without cost. Tiers are always evaluated in numeric o
 
 ## Tier Reference
 
-### Tier 1: Static Rules and Regex Guardrails
+### Tier 1: Static (Fuzzy) Rules and Regex Guardrails
 
 - **Low-Latency Deterministic Pipeline:** Replaces conventional regex guardrails with Aho-Corasick automata and Damerau-Levenshtein fuzzy matching, scanning the immutable payload through exact positional, fuzzy-token, imperative-zone, prefix, and polarity checks.
 - **Ambiguity as a First-Class Output:** The policy explicitly models competing intent. When strong LLM generative cues conflict with Jev discriminative signals, Tier 1 enters an explicit conflict state and defers to Tier 2 rather than forcing a premature guess.
 - **Deterministic Query Fast Paths:** Recognizes requests whose answers can be resolved through closed-form computation or other deterministic operations, bypassing semantic model inference entirely. Math dependent requests are the simplest case; the same layer is designed to absorb quantitative and other structured queries as additional fast paths.
 
-### Tier 2: FastText Subword Classifier
+### Tier 2: Learned Decision Layer
 
-- **Mechanism:** character n-gram subword embeddings (n = 3 to 6) evaluated by FastText through in-process static C++ bindings (`libfasttext`).
-- **Strength:** robust to typos, inflections, and fuzzy keyword variation, because subword features generalize across spellings.
-- **Confidence gating:** the classifier produces the top-1 probability P1 and top-2 probability P2. A margin-scaled confidence score is computed as:
+- **Subword Route Classification:** FastText provides the first learned routing layer, using subword features to classify prompts into Jev or generative execution paths. The classifier exposes the full probability distribution rather than discarding the model's raw evidence after selecting the top class. n-gram embeddings evaluated via in-process static C++ bindings (`libfasttext`).
+- **Confidence-Gated Escalation:** Tier 2 does not treat the top prediction as sufficient by itself. Its calibrated score is compared against a configurable confidence threshold; high-confidence Jev predictions terminate the cascade, while uncertain cases pass through to the next tier. The threshold therefore controls the tradeoff between Jev coverage and false-Jev commits. The classifier produces the top-1 probability P1 and top-2 probability P2. A margin-scaled confidence score is computed as:
 
   `S = P1 * (1.0 + (P1 - P2))`
 
-  The tier resolves when `S >= confidence_threshold`; otherwise it returns PassThrough. A wide margin between the top two classes raises confidence, and a narrow margin lowers it, even when P1 alone is high.
-- **Calibration:** thresholds should be set against a held-out validation set using the utilities in `src/tier2/calibration.rs`, not by hand.
+  This tier resolves when `S >= confidence_threshold`; otherwise it returns PassThrough. A wide margin between the top two classes raises confidence, and a narrow margin lowers it, even when P1 alone is high.
+- **Empirical Threshold Calibration:** Thresholds are evaluated against held-out labeled data rather than chosen by hand. The evaluation harness sweeps the actual score boundaries produced by the model, reports Jev precision and coverage with 95% Wilson confidence intervals, and rejects evaluation sets that overlap normalized training prompts. Source-held-out experiments provide an additional test of cross-source generalization.
+- **Robust** to typos, inflections, and fuzzy keyword variation, because subword features generalize across spellings.
 - **Artifact:** quantized binary `router_fastpath.ftz`.
 
 ### Tier 3: Micro-Transformer / Embedding Evaluators
 
-- **Engines:** ModernBERT, Harrier, or Oryn. Exactly one in-process engine is selected through configuration. A remote gRPC evaluator can be used instead.
-- **In-process path:** Int8-quantized ONNX models executed by ONNX Runtime (`ort`), with the HuggingFace `tokenizers` Rust library for tokenization.
-- **Scoring:** the prompt embedding is compared by cosine similarity (SIMD-accelerated with `simsimd`) against pre-computed route centroids.
-- **SIMD targets:** AVX-512 on x86-64, NEON on ARM.
-- **Remote path:** the gRPC client in `src/tier2/remote/` allows the same evaluator contract to be served out of process.
+- **Exemplars at Runtime:** Tier 3 does not use a separately trained routing model. It loads the current labeled exemplar set at runtime and evaluates the incoming request directly against those examples, keeping the routing knowledge explicit and updateable without retraining.
+- **Pluggable Semantic Engines:** Harrier is the default evaluator, with ModernBERT as an upcoming alternative and Oryn available as an optional engine. The exemplar set remains constant while the semantic engine can change independently.
+- **Example-Driven Resolution:** Rather than learning a permanent decision boundary from the exemplars, Tier 3 uses them directly to determine whether the request is sufficiently supported by the observed Jev or LLM examples. Weak, conflicting, or out-of-distribution evidence passes through to Tier 4.
 
-### Tier 4: Heavy Model Fallback
+### Tier 4: Jev Self-Evaluation
 
-- **Mechanism:** a higher-capacity secondary classifier for ambiguous payloads that tiers 1 to 3 could not resolve.
-- **Latency:** an order of magnitude above tier 3. It is intentionally reserved for a small fraction of traffic.
-- **Timeout:** bounded by `timeout_ms`. See [Failure Modes](#failure-modes-and-fallback-behavior).
+- **Capability-Level Judgment:** Tier 4 uses Jev itself to determine whether Jev can handle the incoming request. The system therefore moves from predicting the route to asking the destination capability whether the request belongs within its executable domain.
+- **Final Discriminative Gate:** Tier 4 provides the last opportunity to resolve a request without invoking a generative model. A positive Jev determination terminates the cascade; uncertainty or a negative determination escalates to Tier 5.
+- **Recursive Architecture:** The cascade progressively asks increasingly capable systems whether generation is actually necessary, culminating in the unusual case where Jev evaluates whether Jev can solve the problem.
 
-### Tier 5: Frontier Model Escalation
-
-- **Mechanism:** escalation to a frontier LLM endpoint for prompts that remain unresolved or require non-deterministic judgment.
-- **Latency:** variable and dependent on the external endpoint.
-- **Role:** terminal tier, so it always returns a decision.
-
+### Tier 5: Generative LLM Fallback
+- **Open-Ended Generation:** Tier 5 is the terminal generative pathway for requests that survive every discriminative tier or inherently require open-ended language generation, synthesis, or reasoning.
+- **Guaranteed Termination:** Tier 5 always produces the final routing outcome, making the cascade total even when every cheaper evaluator abstains or fails.
+- **Expensive by Design:** The generative model is deliberately reserved for the residual traffic that earlier tiers cannot confidently establish as JEV-capable, minimizing unnecessary token consumption while preserving full LLM capability for genuinely generative requests.
 ---
 
 ## Latency Budget and Target Coverage
