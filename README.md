@@ -339,13 +339,27 @@ When validating the SLA:
 
 ## Observability
 
-The `logging` module provides low-overhead tracing. For every request the router should record:
+Telemetry is driven by `tracing`, initialized in `src/main.rs`. Every classification request generates a structured span containing feature variables, execution path outcomes, and timing metadata, exported to OpenTelemetry/Tempo for distributed tracing and Loki for log aggregation.
 
-- The tier at which the request resolved
-- Per-tier latency
-- The confidence score at the deciding tier
-- Pass-through counts per tier, for coverage tracking
-- Timeouts and escalation failures at tiers 4 and 5
+### Span Attributes and Evaluation Tracking
+The Tier1Engine::classify method instruments spans with individual feature metrics and routing decisions:
+
+- Exact & Fuzzy Feature Counters: matches_llm_prefix, starts_polar, jev_strong_hits, jev_mod_hits, llm_strong_hits
+- Fast-Path Markers: is_binary_question
+- Decision State: confidence, routing_reason
+
+Tracking resolved-at-tier distribution over time is the primary health signal. A shift of traffic toward Tiers 4 and 5 indicates threshold, model, or prompt-distribution drift, causing tail latency and operational cost to rise.
+
+### Exporter Configuration
+Distributed tracing and log streaming are configured via default local endpoints or environment variables:
+- OTLP Traces (Tempo): Sent via opentelemetry-otlp using `SdkTracerProvider`. Defaults to http://localhost:4317.
+- Loki Events: Streamed via `tracing-loki` under the service label cascade-router. Defaults to http://localhost:3100.
+
+### Adjusting Log Verbosity
+Verbosity is controlled via RUST_LOG. The default level is info.
+```RUST_LOG=info cargo run --release```
+Recommended production configuration:
+```RUST_LOG=info,cascade_router=debug```
 
 Tracking **resolved-at-tier distribution over time** is the most important signal. A shift of traffic toward tiers 4 and 5 means thresholds, models, or the input distribution have drifted, and both cost and tail latency will rise.
 
