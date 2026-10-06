@@ -218,7 +218,7 @@ The values above are illustrative defaults. Thresholds must be calibrated on you
 - A stable Rust toolchain
 - A C++ toolchain and `clang`, required to build the static FastText library
 - `pkg-config`
-- Python 3 (only for model training scripts)
+- Python 3 (for model training, exemplar dataset loading/serving, and calibration)
 
 ```bash
 # Debian / Ubuntu
