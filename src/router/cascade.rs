@@ -96,6 +96,14 @@ fn finish_route(
             tier: decision.decided_by_tier,
             latency_us,
         },
+        router_classification_latency_us: start.elapsed().as_micros(),
+        downstream_invocation_latency_ms: 0.0,
+        request_latency_primary_ms: None,
+        request_latency_failover_ms: None,
+        downstream_outcome: None,
+        downstream_tier: None,
+        is_failover: false,
+        failure_reason: None,
         sampling: Sampling::default(),
     };
     (decision, record)

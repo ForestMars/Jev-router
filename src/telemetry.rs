@@ -26,6 +26,22 @@ pub struct RouteRecord {
     pub tier3_outcome: Option<Tier3Outcome>,
     pub final_routing: FinalRouting,
     #[serde(default)]
+    pub router_classification_latency_us: u128,
+    #[serde(default)]
+    pub downstream_invocation_latency_ms: f64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub request_latency_primary_ms: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub request_latency_failover_ms: Option<f64>,
+    #[serde(default)]
+    pub downstream_outcome: Option<String>,
+    #[serde(default)]
+    pub downstream_tier: Option<String>,
+    #[serde(default)]
+    pub is_failover: bool,
+    #[serde(default)]
+    pub failure_reason: Option<String>,
+    #[serde(default)]
     pub sampling: Sampling,
 }
 
