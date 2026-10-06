@@ -13,6 +13,17 @@ The engine is a **five-tier deterministic fallback cascade**. Each tier either r
 > [!TIP]
 > Most LLM requests do not need a generative model. Route the ones that don't to a much cheaper decision engine, and escalate only when necessary.
 
+<table width="100%">
+<tr>
+<td>
+
+ Most LLM requests do not need a generative model. Route the ones that don't to a much cheaper decision engine, and escalate only when necessary.
+
+</td>
+</tr>
+</table>
+
+
 ---
 
 ## Table of Contents
